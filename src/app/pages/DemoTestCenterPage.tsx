@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { CheckCircle, ClipboardCheck, LogIn, PlayCircle, Shield, User, Crown, Database } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
 import { demoAccounts, mockFunctionTestMatrix } from '../data/mockData';

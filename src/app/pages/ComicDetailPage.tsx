@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router';
 import { Star, Eye, Heart, Share2, BookOpen, Users, ChevronLeft, Bell, Bookmark, Coins } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { ChapterRow } from '../components/comic/ChapterRow';
 import { ComicCard } from '../components/comic/ComicCard';

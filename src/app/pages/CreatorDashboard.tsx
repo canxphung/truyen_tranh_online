@@ -18,7 +18,7 @@ import {
   CheckCircle,
   Send
 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { StatCard } from '../components/dashboard/StatCard';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';

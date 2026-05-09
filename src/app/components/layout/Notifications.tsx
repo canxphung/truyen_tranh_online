@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Bell, BellOff, X, BookOpen, Coins, Crown, AlertCircle, Heart, MessageCircle } from 'lucide-react';
 import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
+import { Button } from '../ui/button';
 import { Card } from '../ui/Card';
 
 interface Notification {

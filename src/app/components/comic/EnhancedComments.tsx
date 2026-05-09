@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Heart, MessageCircle, MoreVertical, Flag, Trash2, Edit2, Check } from 'lucide-react';
-import { Button } from '../ui/Button';
+import { Button } from '../ui/button';
 import { Badge } from '../ui/Badge';
 
 interface Comment {

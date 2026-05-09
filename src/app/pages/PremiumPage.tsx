@@ -1,5 +1,5 @@
 import { Check, Crown, Zap, Star, Sparkles, TrendingUp } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { useState } from 'react';

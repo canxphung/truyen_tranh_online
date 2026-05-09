@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { BookOpen, Coins, LogOut, Shield, User, CheckCircle, Clock, Bell, BookmarkCheck } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
 import { demoAccounts, mockFollowedComics, mockReadingProgress, mockUnlockedChapters } from '../data/mockData';

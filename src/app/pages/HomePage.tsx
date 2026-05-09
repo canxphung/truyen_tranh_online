@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ArrowRight, TrendingUp, Clock, Star, Sparkles, X, Filter } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { ComicCard } from '../components/comic/ComicCard';
 import { Badge } from '../components/ui/Badge';
 import { SearchBar } from '../components/ui/SearchBar';
