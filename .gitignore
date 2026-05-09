@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.vite/
+.cache/
+coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local editor / IDE files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test / tooling caches
+.eslintcache
+.stylelintcache
+.turbo/
+
+# Package manager caches
+.npm/
+.yarn/
+.pnpm-store/
+
+# Deployment / hosting local folders
+.vercel/
+.netlify/
+.wrangler/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
