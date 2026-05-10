@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { CheckCircle, ClipboardCheck, LogIn, PlayCircle, Shield, User, Crown, Database } from 'lucide-react';
+import { CheckCircle, ClipboardCheck, LogIn, PlayCircle, Shield, User, Crown, Database, Compass, TrendingUp, Filter } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
@@ -59,6 +59,47 @@ export function DemoTestCenterPage() {
                 <Button key={account.id} variant="ghost" size="sm" onClick={() => loginAndOpen(account.role, '/')}>Login {roleLabel(account.role)}</Button>
               ))}
             </div>
+          </div>
+        </Card>
+
+
+        <Card className="border-primary/30 bg-primary/5">
+          <div className="flex items-start gap-4 mb-5">
+            <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center">
+              <Filter className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Checklist test mới: Khám phá, Thịnh hành, Danh mục</h2>
+              <p className="text-sm text-muted-foreground">
+                Mục tiêu là kiểm tra 2 trang có chức năng khác nhau và đảm bảo lọc danh mục chạy client-side, không tải lại trang.
+              </p>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Link to="/explore" className="rounded-2xl border border-border bg-card p-4 hover:border-primary/40 transition-all">
+              <div className="flex items-center gap-2 mb-2">
+                <Compass className="w-5 h-5 text-primary" />
+                <h3 className="font-bold">Khám phá</h3>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">Test search, lọc danh mục, lọc trạng thái và sort toàn bộ kho truyện.</p>
+              <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                <li>Click Fantasy/Hài hước không reload trang.</li>
+                <li>Search “Long” giữ kết quả đúng.</li>
+                <li>Sort theo views/rating/chapters.</li>
+              </ul>
+            </Link>
+            <Link to="/trending" className="rounded-2xl border border-border bg-card p-4 hover:border-warning/40 transition-all">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-5 h-5 text-warning" />
+                <h3 className="font-bold">Thịnh hành</h3>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">Test bảng xếp hạng hot theo điểm thịnh hành demo.</p>
+              <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                <li>Có Top #1 và thứ hạng #1, #2, #3.</li>
+                <li>Lọc theo 24h/7d/30d.</li>
+                <li>Lọc danh mục không reload trang.</li>
+              </ul>
+            </Link>
           </div>
         </Card>
 

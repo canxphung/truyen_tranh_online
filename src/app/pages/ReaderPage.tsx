@@ -13,11 +13,13 @@ import {
   Bell,
   Type,
   Coins,
-  Lock
+  Lock,
+  Crown,
+  CalendarClock
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
-import { defaultDemoPanels, demoChapterPanels, demoPanelFallbackUrl, mockComics, mockChapters } from '../data/mockData';
+import { defaultDemoPanels, demoChapterPanels, demoPanelFallbackUrl, mockComics, mockChapters, mockPremiumSubscription } from '../data/mockData';
 
 export function ReaderPage() {
   const { comicId, chapterId } = useParams();
@@ -35,6 +37,7 @@ export function ReaderPage() {
   const prevChapter = currentIndex > 0 ? mockChapters[currentIndex - 1] : null;
   const isNextLocked = nextChapter?.status === 'locked' || nextChapter?.status === 'premium';
   const panelImages = demoChapterPanels[currentChapter.id] ?? defaultDemoPanels;
+  const premiumRemainingAfterRead = Math.max(mockPremiumSubscription.remainingReads - 1, 0);
 
   useEffect(() => {
     setProgress(0);
@@ -86,10 +89,18 @@ export function ReaderPage() {
         </div>
       </div>
 
-      {/* Auto-save status */}
+      {/* Auto-save + Premium quota status */}
       {showUI && (
-        <div className="fixed left-1/2 -translate-x-1/2 top-20 z-40 px-4 py-2 rounded-full bg-card/90 border border-border backdrop-blur-xl text-xs text-muted-foreground shadow-lg" onClick={(e) => e.stopPropagation()}>
-          <span className="text-success font-semibold">●</span> Lưu tiến độ đọc: chương {currentChapter.number}, {Math.round(progress)}% · Tự cuộn lên đầu khi đổi chương
+        <div className="fixed left-1/2 -translate-x-1/2 top-20 z-40 w-[min(92vw,760px)] rounded-2xl bg-card/95 border border-border backdrop-blur-xl text-xs text-muted-foreground shadow-lg p-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <span className="text-success font-semibold">●</span> Lưu tiến độ đọc: chương {currentChapter.number}, {Math.round(progress)}% · Tự cuộn lên đầu khi đổi chương
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="premium"> Còn {mockPremiumSubscription.remainingReads} lượt Premium</Badge>
+              <span className="inline-flex items-center gap-1"><CalendarClock className="w-3 h-3" /> Reset {mockPremiumSubscription.resetAt.split(' ')[0]}</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -191,12 +202,18 @@ export function ReaderPage() {
                       <p className="text-sm text-muted-foreground">Chương {nextChapter.number}: {nextChapter.title}</p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between bg-muted/30 rounded-xl p-3 mb-4">
-                    <span className="text-sm text-muted-foreground">Chi phí đọc chương</span>
-                    <span className="font-bold text-primary flex items-center gap-1"><Coins className="w-4 h-4" /> {nextChapter.price ?? comic.pricePerChapter} Coin</span>
+                  <div className="grid gap-3 mb-4">
+                    <div className="flex items-center justify-between bg-muted/30 rounded-xl p-3">
+                      <span className="text-sm text-muted-foreground">Mua vĩnh viễn bằng Coin</span>
+                      <span className="font-bold text-primary flex items-center gap-1"><Coins className="w-4 h-4" /> {nextChapter.price ?? comic.pricePerChapter} Coin</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-warning/10 border border-warning/30 rounded-xl p-3">
+                      <span className="text-sm text-muted-foreground flex items-center gap-2"><Crown className="w-4 h-4 text-warning" /> Đọc bằng Premium</span>
+                      <span className="font-bold text-warning">Còn {mockPremiumSubscription.remainingReads} → {premiumRemainingAfterRead} lượt</span>
+                    </div>
                   </div>
                   <Link to={`/comic/${comicId}`} onClick={(e) => e.stopPropagation()}>
-                    <Button className="w-full">Mở khóa bằng Coin / Premium</Button>
+                    <Button className="w-full">Chọn Coin hoặc Premium</Button>
                   </Link>
                 </div>
               ) : (

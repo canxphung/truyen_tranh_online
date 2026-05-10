@@ -223,6 +223,8 @@ export const demoAccounts: DemoAccount[] = [
       'unlock_paid_chapters',
       'buy_coin_packages',
       'subscribe_premium',
+      'track_premium_read_quota',
+      'audit_coin_purchase_history',
       'comment_interact',
       'follow_notify',
       'save_reading_progress'
@@ -292,6 +294,93 @@ export const mockUnlockedChapters = [
   { comicId: '4', chapterId: '15', title: 'Căn Phòng Số 17 - Chương 15', paidCoin: 15, unlockedAt: '2026-05-03 11:20' }
 ];
 
+
+
+export const mockPremiumSubscription = {
+  userId: 'reader-001',
+  planId: 'basic',
+  planName: 'Premium Basic',
+  status: 'active' as const,
+  billingCycle: 'monthly' as const,
+  monthlyReadLimit: 30,
+  usedThisMonth: 18,
+  remainingReads: 12,
+  resetAt: '2026-06-01 00:00',
+  startedAt: '2026-05-01 09:00',
+  expiredAt: '2026-06-01 00:00',
+  autoRenew: true,
+  lastPremiumRead: {
+    comicTitle: 'Long Hồn Ký',
+    chapterNumber: 12,
+    readAt: '2026-05-09 22:15'
+  },
+  usageHistory: [
+    { id: 'pu-1', date: '2026-05-09 22:15', comicTitle: 'Long Hồn Ký', chapterNumber: 12, action: 'Đọc bằng Premium', used: 1, remainingAfter: 12 },
+    { id: 'pu-2', date: '2026-05-09 20:40', comicTitle: 'Học Viện Ánh Trăng', chapterNumber: 7, action: 'Đọc bằng Premium', used: 1, remainingAfter: 13 },
+    { id: 'pu-3', date: '2026-05-08 21:05', comicTitle: 'Căn Phòng Số 17', chapterNumber: 15, action: 'Đọc bằng Premium', used: 1, remainingAfter: 14 }
+  ]
+};
+
+export const mockCoinPurchaseAuditTrail = [
+  {
+    id: 'coin-audit-1',
+    orderCode: 'IVC-20260506-0008',
+    packageName: 'Gói 550 Coin',
+    baseCoins: 500,
+    bonusCoins: 50,
+    totalCoins: 550,
+    amountVnd: 50000,
+    paymentMethod: 'MoMo',
+    providerTransactionId: 'MOMO-9F2K-202605061030',
+    status: 'success' as const,
+    createdAt: '2026-05-06 10:28',
+    paidAt: '2026-05-06 10:30',
+    balanceBefore: 15,
+    balanceAfter: 565,
+    invoiceEmail: 'reader@inkverse.demo',
+    channel: 'Web Wallet',
+    note: 'Mock trace dùng để demo truy vết nạp coin: đơn hàng, cổng thanh toán, số dư trước/sau.'
+  },
+  {
+    id: 'coin-audit-2',
+    orderCode: 'IVC-20260504-0016',
+    packageName: 'Gói 200 Coin',
+    baseCoins: 200,
+    bonusCoins: 0,
+    totalCoins: 200,
+    amountVnd: 20000,
+    paymentMethod: 'VNPay',
+    providerTransactionId: 'VNPAY-2A8C-202605041420',
+    status: 'success' as const,
+    createdAt: '2026-05-04 14:17',
+    paidAt: '2026-05-04 14:20',
+    balanceBefore: 40,
+    balanceAfter: 240,
+    invoiceEmail: 'reader@inkverse.demo',
+    channel: 'Mobile Web',
+    note: 'Đối soát thành công với payment gateway mock.'
+  },
+  {
+    id: 'coin-audit-3',
+    orderCode: 'IVC-20260502-0005',
+    packageName: 'Gói 1.150 Coin',
+    baseCoins: 1000,
+    bonusCoins: 150,
+    totalCoins: 1150,
+    amountVnd: 100000,
+    paymentMethod: 'Thẻ ngân hàng',
+    providerTransactionId: 'BANK-DEMO-778812',
+    status: 'pending' as const,
+    createdAt: '2026-05-02 18:02',
+    paidAt: '-',
+    balanceBefore: 120,
+    balanceAfter: 120,
+    invoiceEmail: 'reader@inkverse.demo',
+    channel: 'Web Wallet',
+    note: 'Đơn chưa thanh toán, dùng để demo trạng thái chờ xử lý.'
+  }
+];
+
 export const mockCreatorSeries = [
   { id: '1', title: 'Học Viện Ánh Trăng', status: 'Đang phát hành', chapters: 46, followers: 85000, monthlyViews: 420000, revenue: 12850000, lastUpdated: '2026-05-08' },
   { id: '6', title: 'Người Gác Cổng Linh Giới', status: 'Đang phát hành', chapters: 38, followers: 95000, monthlyViews: 510000, revenue: 9450000, lastUpdated: '2026-05-07' },
@@ -347,10 +436,11 @@ export const mockFunctionTestMatrix = [
     accountEmail: 'reader@inkverse.demo',
     route: '/',
     functions: [
-      { name: 'Tìm kiếm & duyệt truyện', route: '/', data: 'mockComics, categories' },
+      { name: 'Khám phá: tìm kiếm & lọc truyện', route: '/explore', data: 'mockComics, categories, client-side filters' },
+      { name: 'Thịnh hành: bảng xếp hạng hot', route: '/trending', data: 'mockComics, trendingScore' },
       { name: 'Đọc chương miễn phí / trả phí', route: '/comic/1', data: 'mockChapters' },
-      { name: 'Mua chương bằng coin', route: '/comic/1', data: 'mockUnlockedChapters, mockTransactions' },
-      { name: 'Đăng ký Premium', route: '/premium', data: 'demoAccounts.reader.premium' },
+      { name: 'Mua chương bằng coin', route: '/comic/1', data: 'mockUnlockedChapters, mockTransactions, mockCoinPurchaseAuditTrail' },
+      { name: 'Đăng ký Premium', route: '/premium', data: 'demoAccounts.reader.premium, mockPremiumSubscription.remainingReads' },
       { name: 'Bình luận & tương tác', route: '/comic/1', data: 'EnhancedComments' },
       { name: 'Theo dõi & thông báo', route: '/comic/1', data: 'mockFollowedComics, Notifications' },
       { name: 'Lưu tiến độ đọc', route: '/library', data: 'mockReadingProgress' }
@@ -364,10 +454,10 @@ export const mockFunctionTestMatrix = [
     functions: [
       { name: 'Đăng ký tài khoản Creator', route: '/creator/register', data: 'creatorStatus' },
       { name: 'Tạo & quản lý bộ truyện', route: '/creator', data: 'mockCreatorSeries' },
-      { name: 'Upload chương mới', route: '/creator', data: 'mockCreatorDrafts' },
+      { name: 'Upload chương mới', route: '/creator/upload', data: 'mockCreatorDrafts, PDF validation, copyright checklist' },
       { name: 'Xem Analytics', route: '/creator', data: 'creator analytics cards/charts' },
       { name: 'Nhận & theo dõi doanh thu', route: '/creator', data: 'mockCreatorSeries.revenue' },
-      { name: 'Viết Blog / Nhật ký tác giả', route: '/creator', data: 'mockCreatorBlogPosts' },
+      { name: 'Viết Blog / Nhật ký tác giả', route: '/creator/blog/new', data: 'Tiptap editor, cover upload preview, blogStore' },
       { name: 'Trả lời bình luận độc giả', route: '/creator', data: 'mockCreatorCommentInbox' },
       { name: 'Báo cáo vi phạm bản quyền', route: '/creator', data: 'mockCopyrightReports' }
     ]

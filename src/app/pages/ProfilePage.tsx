@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { BookOpen, Coins, LogOut, Shield, User, CheckCircle, Clock, Bell, BookmarkCheck } from 'lucide-react';
+import { BookOpen, Coins, LogOut, Shield, User, CheckCircle, Clock, Bell, BookmarkCheck, Crown, ReceiptText } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
-import { demoAccounts, mockFollowedComics, mockReadingProgress, mockUnlockedChapters } from '../data/mockData';
+import { demoAccounts, mockCoinPurchaseAuditTrail, mockFollowedComics, mockPremiumSubscription, mockReadingProgress, mockUnlockedChapters } from '../data/mockData';
 import { clearMockSession, getMockSession, quickLogin, roleHome, roleLabel, type MockSession } from '../lib/mockAuth';
 
 const routeByRole = {
@@ -69,7 +69,7 @@ export function ProfilePage() {
           </div>
         </Card>
 
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-4 gap-4">
           <Card>
             <Coins className="w-6 h-6 text-warning mb-3" />
             <p className="text-sm text-muted-foreground">Coin khả dụng</p>
@@ -84,6 +84,11 @@ export function ProfilePage() {
             <CheckCircle className="w-6 h-6 text-success mb-3" />
             <p className="text-sm text-muted-foreground">Quyền test</p>
             <p className="text-3xl font-bold">{session.permissions.length}</p>
+          </Card>
+          <Card>
+            <Crown className="w-6 h-6 text-warning mb-3" />
+            <p className="text-sm text-muted-foreground">Lượt Premium còn lại</p>
+            <p className="text-3xl font-bold">{mockPremiumSubscription.remainingReads}</p>
           </Card>
         </div>
 
@@ -116,6 +121,58 @@ export function ProfilePage() {
                 <div key={permission} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border">
                   <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
                   <span className="text-sm font-medium">{permission}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        <div className="grid lg:grid-cols-[1fr_1fr] gap-6">
+          <Card className="bg-gradient-to-br from-warning/10 to-primary/10 border-warning/30">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2"><Crown className="w-5 h-5 text-warning" /> Quota Premium Reader</h2>
+                <p className="text-sm text-muted-foreground mt-1">Hiển thị rõ số lượt đọc còn lại khi gói Premium bị giới hạn lượt xem.</p>
+              </div>
+              <Badge variant="premium">{mockPremiumSubscription.planName}</Badge>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-3 mb-4">
+              <div className="rounded-xl bg-background/60 border border-border p-3">
+                <p className="text-xs text-muted-foreground">Còn lại</p>
+                <p className="text-2xl font-bold text-primary">{mockPremiumSubscription.remainingReads}</p>
+              </div>
+              <div className="rounded-xl bg-background/60 border border-border p-3">
+                <p className="text-xs text-muted-foreground">Đã dùng</p>
+                <p className="text-2xl font-bold">{mockPremiumSubscription.usedThisMonth}</p>
+              </div>
+              <div className="rounded-xl bg-background/60 border border-border p-3">
+                <p className="text-xs text-muted-foreground">Giới hạn</p>
+                <p className="text-2xl font-bold">{mockPremiumSubscription.monthlyReadLimit}</p>
+              </div>
+            </div>
+            <div className="h-2 rounded-full bg-background/60 overflow-hidden mb-3">
+              <div className="h-full bg-gradient-to-r from-primary to-warning" style={{ width: `${Math.round((mockPremiumSubscription.usedThisMonth / mockPremiumSubscription.monthlyReadLimit) * 100)}%` }} />
+            </div>
+            <p className="text-xs text-muted-foreground">Reset vào {mockPremiumSubscription.resetAt}. Lần đọc Premium gần nhất: {mockPremiumSubscription.lastPremiumRead.comicTitle} chương {mockPremiumSubscription.lastPremiumRead.chapterNumber}.</p>
+          </Card>
+
+          <Card>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2"><ReceiptText className="w-5 h-5 text-primary" /> Truy vết mua Coin</h2>
+                <p className="text-sm text-muted-foreground mt-1">Thông tin phục vụ đối soát giao dịch và hỗ trợ người dùng.</p>
+              </div>
+              <Link to="/wallet"><Button size="sm" variant="secondary">Xem ví</Button></Link>
+            </div>
+            <div className="space-y-3">
+              {mockCoinPurchaseAuditTrail.slice(0, 2).map((item) => (
+                <div key={item.id} className="rounded-xl bg-muted/30 border border-border p-3">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <p className="font-semibold text-sm">{item.orderCode}</p>
+                    <Badge variant={item.status === 'success' ? 'success' : 'warning'}>{item.status === 'success' ? 'Thành công' : 'Chờ xử lý'}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{item.paymentMethod} · {item.totalCoins} Coin · {item.amountVnd.toLocaleString()}đ</p>
+                  <p className="text-xs text-muted-foreground">Số dư {item.balanceBefore} → {item.balanceAfter} · Ref: {item.providerTransactionId}</p>
                 </div>
               ))}
             </div>

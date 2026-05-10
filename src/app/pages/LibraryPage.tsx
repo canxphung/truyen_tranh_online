@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { BookOpen, Clock, Heart, Download, Filter, Trash2, Eye } from 'lucide-react';
+import { BookOpen, Clock, Heart, Download, Filter, Trash2, Eye, Crown, CalendarClock } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { mockComics } from '../data/mockData';
+import { mockComics, mockPremiumSubscription } from '../data/mockData';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 
 export function LibraryPage() {
@@ -47,7 +47,7 @@ export function LibraryPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Thư viện của tôi</h1>
+            <h1 className="text-3xl font-bold mb-2">Thư viện</h1>
             <p className="text-muted-foreground">Quản lý truyện đang đọc và đã lưu</p>
           </div>
           <Button variant="ghost">
@@ -55,6 +55,28 @@ export function LibraryPage() {
             Bộ lọc
           </Button>
         </div>
+
+        <Card className="bg-gradient-to-br from-warning/10 to-primary/10 border-warning/30">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <Badge variant="premium"><Crown className="w-3 h-3 mr-1" /> {mockPremiumSubscription.planName}</Badge>
+                <Badge variant="success">Đang hoạt động</Badge>
+              </div>
+              <h2 className="text-xl font-bold">Bạn còn {mockPremiumSubscription.remainingReads} lượt đọc Premium trong tháng này</h2>
+              <p className="text-sm text-muted-foreground mt-1">Đã dùng {mockPremiumSubscription.usedThisMonth}/{mockPremiumSubscription.monthlyReadLimit} lượt. Reset vào {mockPremiumSubscription.resetAt}.</p>
+            </div>
+            <div className="min-w-[220px]">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                <span>Quota tháng</span>
+                <span className="flex items-center gap-1"><CalendarClock className="w-3 h-3" /> còn {mockPremiumSubscription.remainingReads}</span>
+              </div>
+              <div className="h-3 rounded-full bg-background/60 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-primary to-warning" style={{ width: `${Math.round((mockPremiumSubscription.usedThisMonth / mockPremiumSubscription.monthlyReadLimit) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+        </Card>
 
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide border-b border-border">
@@ -64,11 +86,10 @@ export function LibraryPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${activeTab === tab.id
                     ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
                     : 'bg-card border border-border text-foreground hover:border-primary/50'
-                }`}
+                  }`}
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}

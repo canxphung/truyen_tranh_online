@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router';
-import { Coins, User, Menu, LogIn, LogOut, Shield, Crown, ClipboardCheck } from 'lucide-react';
+import { Coins, User, Menu, LogIn, LogOut, Shield, Crown, ClipboardCheck, BookOpen } from 'lucide-react';
 import { SearchBar } from '../ui/SearchBar';
 import { Notifications } from './Notifications';
 import { useEffect, useState } from 'react';
@@ -57,7 +57,7 @@ export function Header() {
               <Link to="/" className="text-foreground hover:text-primary transition-colors">Trang chủ</Link>
               <Link to="/explore" className="text-foreground hover:text-primary transition-colors">Khám phá</Link>
               <Link to="/trending" className="text-foreground hover:text-primary transition-colors">Thịnh hành</Link>
-              <Link to="/library" className="text-foreground hover:text-primary transition-colors">Thư viện</Link>
+              <Link to="/blog" className="text-foreground hover:text-primary transition-colors">Blog</Link>
               <Link to="/premium" className="text-primary hover:text-primary/80 transition-colors font-semibold">Premium</Link>
               {/* <Link to="/demo-test" className="text-foreground hover:text-primary transition-colors">Test</Link> */}
             </nav>
@@ -109,17 +109,22 @@ export function Header() {
 
                       <div className="pt-3 space-y-1">
                         <Link to="/profile" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted transition-all text-sm">
-                          <User className="w-4 h-4" /> Profile mock
+                          <User className="w-4 h-4" /> Profile
                         </Link>
-                        <Link to={roleHome(session.role)} onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted transition-all text-sm">
-                          {session.role === 'admin' ? <Shield className="w-4 h-4" /> : session.role === 'author' ? <Crown className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                          Khu vực {roleLabel(session.role)}
-                        </Link>
-                        <Link to="/demo-test" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted transition-all text-sm">
+                        {session.role !== 'reader' && (
+                          <Link to={roleHome(session.role)} onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted transition-all text-sm">
+                            {session.role === 'admin' ? <Shield className="w-4 h-4" /> : <Crown className="w-4 h-4" />}
+                            Quản trị
+                          </Link>
+                        )}
+                        {/* <Link to="/demo-test" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted transition-all text-sm">
                           <ClipboardCheck className="w-4 h-4" /> Checklist test
+                        </Link> */}
+                        <Link to="/library" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted transition-all text-sm">
+                          <BookOpen className="w-4 h-4" /> Thư viện
                         </Link>
                         <button onClick={logout} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-error/10 text-error transition-all text-sm">
-                          <LogOut className="w-4 h-4" /> Đăng xuất mock
+                          <LogOut className="w-4 h-4" /> Đăng xuất
                         </button>
                       </div>
                     </div>
@@ -148,11 +153,16 @@ export function Header() {
             <Link to="/" className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg">Trang chủ</Link>
             <Link to="/explore" className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg">Khám phá</Link>
             <Link to="/trending" className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg">Thịnh hành</Link>
-            <Link to="/library" className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg">Thư viện</Link>
+            <Link to="/blog" className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg">Blog tác giả</Link>
             <Link to="/premium" className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg">Premium</Link>
             <Link to="/demo-test" className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg">Checklist test</Link>
-            <Link to={session ? '/profile' : '/login'} className="block px-4 py-2 text-primary hover:bg-muted rounded-lg font-semibold">
-              {session ? `Profile ${roleLabel(session.role)}` : 'Login demo'}
+            {session && session.role !== 'reader' && (
+              <Link to={roleHome(session.role)} onClick={() => setMobileMenuOpen(false)} className="block px-4 py-2 text-primary hover:bg-muted rounded-lg font-semibold">
+                Quản trị
+              </Link>
+            )}
+            <Link to={session ? '/profile' : '/login'} onClick={() => setMobileMenuOpen(false)} className="block px-4 py-2 text-primary hover:bg-muted rounded-lg font-semibold">
+              {session ? 'Profile' : 'Login demo'}
             </Link>
           </div>
         )}

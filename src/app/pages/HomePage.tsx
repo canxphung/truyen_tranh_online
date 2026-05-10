@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { ArrowRight, TrendingUp, Clock, Star, Sparkles, X, Filter } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { ComicCard } from '../components/comic/ComicCard';
@@ -21,18 +21,13 @@ const buildExploreUrl = (category: string, keyword = '') => {
   const trimmedKeyword = keyword.trim();
 
   if (trimmedKeyword) params.set('q', trimmedKeyword);
-
-  if (category === 'Tất cả') {
-    const query = params.toString();
-    return query ? `/explore?${query}` : '/explore';
-  }
+  if (category !== 'Tất cả') params.set('category', category);
 
   const query = params.toString();
-  return `/category/${encodeURIComponent(category)}${query ? `?${query}` : ''}`;
+  return query ? `/explore?${query}` : '/explore';
 };
 
 export function HomePage() {
-  const navigate = useNavigate();
   const params = useParams();
   const [searchParams] = useSearchParams();
   const categoryFromRoute = params.categoryName ? decodeURIComponent(params.categoryName) : '';
@@ -77,18 +72,15 @@ export function HomePage() {
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
-    navigate(buildExploreUrl(category, searchTerm));
   };
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
-    navigate(buildExploreUrl(selectedCategory, value), { replace: true });
   };
 
   const clearFilters = () => {
     setSelectedCategory('Tất cả');
     setSearchTerm('');
-    navigate('/explore');
   };
 
   return (
@@ -167,7 +159,7 @@ export function HomePage() {
               <h2 className="text-2xl font-bold">Tìm kiếm & duyệt truyện</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Tìm theo tên truyện, tác giả hoặc thể loại. Bộ lọc hiện đã đồng bộ với URL để test trực tiếp từng danh mục.
+              Tìm theo tên truyện, tác giả hoặc thể loại. Bộ lọc chạy trực tiếp trên client, click danh mục không tải lại trang.
             </p>
             <SearchBar value={searchTerm} onSearch={handleSearch} placeholder="Tìm truyện, tác giả, thể loại..." />
 
@@ -204,7 +196,7 @@ export function HomePage() {
           <div>
             <div className="flex items-center justify-between mb-6 gap-4">
               <h2 className="text-2xl font-bold">Danh mục</h2>
-              <span className="text-sm text-muted-foreground hidden sm:inline">Click danh mục để lọc và đổi URL demo</span>
+              <span className="text-sm text-muted-foreground hidden sm:inline">Click danh mục để lọc ngay, không reload trang</span>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {categories.map((category) => (

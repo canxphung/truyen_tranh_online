@@ -1,14 +1,15 @@
 import { useParams, Link } from 'react-router';
-import { Star, Eye, Heart, Share2, BookOpen, Users, ChevronLeft, Bell, Bookmark, Coins } from 'lucide-react';
+import { Star, Eye, Heart, Share2, BookOpen, Users, ChevronLeft, Bell, Bookmark, Coins, Crown, CalendarClock, Newspaper, MessageCircle, PenLine } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { ChapterRow } from '../components/comic/ChapterRow';
 import { ComicCard } from '../components/comic/ComicCard';
 import { EnhancedComments } from '../components/comic/EnhancedComments';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
-import { mockComics, mockChapters } from '../data/mockData';
+import { mockComics, mockChapters, mockPremiumSubscription } from '../data/mockData';
+import { getPublicBlogPosts } from '../lib/blogStore';
 import { getMockSession } from '../lib/mockAuth';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export function ComicDetailPage() {
   const { id } = useParams();
@@ -23,9 +24,13 @@ export function ComicDetailPage() {
     if (session) setCoinBalance(session.coins);
   }, []);
   const savedProgress = { chapter: 4, percent: 62, updatedAt: '2 giờ trước' };
+  const premiumUsagePercent = Math.round((mockPremiumSubscription.usedThisMonth / mockPremiumSubscription.monthlyReadLimit) * 100);
 
   const comic = mockComics.find((c) => c.id === id) || mockComics[0];
   const similarComics = mockComics.filter((c) => c.id !== id).slice(0, 4);
+  const authorBlogPosts = useMemo(() => getPublicBlogPosts()
+    .filter((post) => post.authorComicId === comic.id || post.authorName === comic.author)
+    .slice(0, 3), [comic.id, comic.author]);
 
   const handleChapterClick = (chapter: any) => {
     if (chapter.status === 'locked' || chapter.status === 'premium') {
@@ -104,7 +109,7 @@ export function ComicDetailPage() {
               </Button>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
               <div className="bg-muted/30 rounded-xl p-4 border border-border">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
@@ -131,6 +136,23 @@ export function ComicDetailPage() {
                   <span className="font-semibold">{notifyNewChapter ? 'Đang bật thông báo chương mới' : 'Thông báo chương mới đang tắt'}</span>
                   <span className="block text-xs text-muted-foreground mt-1">Có thể kết nối với email, push notification hoặc in-app notification.</span>
                 </button>
+              </div>
+
+              <div className="bg-gradient-to-br from-warning/10 to-primary/10 rounded-xl p-4 border border-warning/30">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="font-semibold flex items-center gap-2"><Crown className="w-4 h-4 text-warning" /> Lượt đọc Premium</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Còn {mockPremiumSubscription.remainingReads}/{mockPremiumSubscription.monthlyReadLimit} lượt trong tháng này.</p>
+                  </div>
+                  <Badge variant="premium">Premium</Badge>
+                </div>
+                <div className="h-2 bg-background/60 rounded-full overflow-hidden mb-4">
+                  <div className="h-full bg-gradient-to-r from-primary to-warning" style={{ width: `${premiumUsagePercent}%` }} />
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Đã dùng {mockPremiumSubscription.usedThisMonth} lượt</span>
+                  <span className="flex items-center gap-1"><CalendarClock className="w-3 h-3" /> Reset {mockPremiumSubscription.resetAt.split(' ')[0]}</span>
+                </div>
               </div>
             </div>
 
@@ -169,6 +191,47 @@ export function ComicDetailPage() {
           </div>
         </section>
 
+
+        {/* Author Blog Section */}
+        {authorBlogPosts.length > 0 && (
+          <section className="mb-12">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <Newspaper className="w-4 h-4 text-primary" />
+                  Blog / Nhật ký tác giả
+                </div>
+                <h2 className="text-2xl font-bold">Bài viết mới từ {comic.author}</h2>
+                <p className="text-sm text-muted-foreground mt-1">Độc giả có thể xem hậu trường sáng tác, teaser chương mới và ghi chú nhân vật từ tác giả.</p>
+              </div>
+              <Link to="/blog">
+                <Button variant="ghost">Xem tất cả blog</Button>
+              </Link>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {authorBlogPosts.map((post) => (
+                <Link key={post.id} to={`/blog/${post.id}`} className="group block rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10">
+                  <div className="aspect-[16/10] overflow-hidden rounded-xl bg-muted mb-4">
+                    <ImageWithFallback src={post.coverUrl} alt={post.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <Badge variant="secondary">{post.category}</Badge>
+                    <span className="inline-flex items-center rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground">{post.readingTime}</span>
+                  </div>
+                  <h3 className="font-bold leading-snug group-hover:text-primary transition-colors line-clamp-2">{post.title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{post.excerpt}</p>
+                  <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> {post.views}</span>
+                    <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> {post.comments}</span>
+                    <span className="flex items-center gap-1 text-primary"><PenLine className="w-3.5 h-3.5" /> Đọc blog</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Comments Section */}
         <section className="mb-12">
           <EnhancedComments comicId={comic.id} />
@@ -194,25 +257,48 @@ export function ComicDetailPage() {
               <Badge variant="primary"><Coins className="w-3 h-3 mr-1" /> {coinBalance} Coin</Badge>
             </div>
             <p className="text-muted-foreground mb-6">
-              Bạn cần mua chương này để đọc. Sau khi mua, bạn có thể đọc chương này vĩnh viễn.
+              Bạn có thể mở khóa chương bằng Coin để sở hữu vĩnh viễn, hoặc dùng 1 lượt đọc Premium nếu gói còn quota.
             </p>
-            <div className="bg-muted/30 rounded-xl p-4 mb-6 space-y-2">
-              <div className="flex justify-between">
+            <div className="bg-muted/30 rounded-xl p-4 mb-4 space-y-2">
+              <div className="flex justify-between gap-3">
                 <span>Chương {selectedChapter.number}</span>
-                <span className="font-semibold">{selectedChapter.title}</span>
+                <span className="font-semibold text-right">{selectedChapter.title}</span>
               </div>
               <div className="flex justify-between text-lg">
-                <span className="text-muted-foreground">Giá:</span>
+                <span className="text-muted-foreground">Giá mua vĩnh viễn:</span>
                 <span className="font-bold text-primary">{selectedChapter.price} Coin</span>
               </div>
             </div>
-            <div className="flex gap-3">
-              <Button variant="ghost" className="flex-1" onClick={() => setShowPurchaseModal(false)}>
+
+            <div className="grid gap-3 mb-6">
+              <div className="rounded-xl border border-warning/30 bg-warning/10 p-4">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <span className="font-semibold flex items-center gap-2"><Crown className="w-4 h-4 text-warning" /> Đọc bằng Premium</span>
+                  <Badge variant="premium">Còn {mockPremiumSubscription.remainingReads} lượt</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Sẽ trừ 1 lượt Premium. Lượt còn lại sau khi đọc: {Math.max(mockPremiumSubscription.remainingReads - 1, 0)}.</p>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <span className="font-semibold flex items-center gap-2"><Coins className="w-4 h-4 text-primary" /> Mua bằng Coin</span>
+                  <Badge variant="primary">{coinBalance} Coin</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Sở hữu vĩnh viễn chương này và không trừ lượt đọc Premium.</p>
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-3">
+              <Button variant="ghost" className="w-full" onClick={() => setShowPurchaseModal(false)}>
                 Hủy
               </Button>
-              <Link to={`/read/${comic.id}/${selectedChapter.id}`} className="flex-1">
+              <Link to={`/read/${comic.id}/${selectedChapter.id}`} className="w-full">
+                <Button variant="secondary" className="w-full">
+                  Dùng Premium
+                </Button>
+              </Link>
+              <Link to={`/read/${comic.id}/${selectedChapter.id}`} className="w-full">
                 <Button className="w-full">
-                  Xác nhận mua bằng Coin
+                  Mua Coin
                 </Button>
               </Link>
             </div>
