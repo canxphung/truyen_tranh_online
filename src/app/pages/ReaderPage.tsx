@@ -20,6 +20,7 @@ import {
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { defaultDemoPanels, demoChapterPanels, demoPanelFallbackUrl, mockComics, mockChapters, mockPremiumSubscription } from '../data/mockData';
+import { chapterApi } from '../lib/api';
 
 export function ReaderPage() {
   const { comicId, chapterId } = useParams();
@@ -29,6 +30,8 @@ export function ReaderPage() {
   const [showComments, setShowComments] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [autoSave, setAutoSave] = useState(true);
+  // Nội dung chương thật từ backend (PDF url + tiêu đề/số chương).
+  const [apiChapter, setApiChapter] = useState<{ url: string | null; title: string; number: number } | null>(null);
 
   const comic = mockComics.find((c) => c.id === comicId) || mockComics[0];
   const currentChapter = mockChapters.find((c) => c.id === chapterId) || mockChapters[0];
@@ -43,6 +46,27 @@ export function ReaderPage() {
     setProgress(0);
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [comicId, chapterId]);
+
+  // Tải chương thật theo chapterId (UUID). Nếu lỗi -> dùng panel demo.
+  useEffect(() => {
+    if (!chapterId) return;
+    let active = true;
+    setApiChapter(null);
+    chapterApi
+      .get(chapterId)
+      .then((c) => {
+        if (active) setApiChapter({ url: c.url, title: c.title, number: c.chapterNumber });
+      })
+      .catch(() => {
+        /* fallback panel demo */
+      });
+    return () => {
+      active = false;
+    };
+  }, [chapterId]);
+
+  const chapterTitle = apiChapter?.title ?? currentChapter.title;
+  const chapterNumber = apiChapter?.number ?? currentChapter.number;
 
   const mockComments = [
     { id: '1', user: 'Minh Anh', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=1', text: 'Chương này hay quá! 🔥', likes: 23, time: '5 phút trước' },
@@ -64,7 +88,7 @@ export function ReaderPage() {
 
           <div className="text-center">
             <h1 className="text-white font-semibold text-sm sm:text-base">{comic.title}</h1>
-            <p className="text-white/60 text-xs sm:text-sm">Chương {currentChapter.number}: {currentChapter.title}</p>
+            <p className="text-white/60 text-xs sm:text-sm">Chương {chapterNumber}: {chapterTitle}</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -128,8 +152,19 @@ export function ReaderPage() {
           </div>
         </div> */}
 
-        <div className="space-y-0">
-          {panelImages.map((src, index) => (
+        <div className="space-y-0" onClick={(e) => e.stopPropagation()}>
+          {apiChapter?.url ? (
+            // Nội dung chương thật là file PDF trên MinIO.
+            <object data={apiChapter.url} type="application/pdf" className="w-full h-[85vh] border-x border-border bg-muted">
+              <div className="p-8 text-center text-muted-foreground">
+                Không hiển thị được PDF trực tiếp.{' '}
+                <a href={apiChapter.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                  Mở chương trong tab mới
+                </a>
+              </div>
+            </object>
+          ) : (
+          panelImages.map((src, index) => (
             <div key={src} className="w-full">
               <img
                 src={src}
@@ -145,7 +180,7 @@ export function ReaderPage() {
                 }}
               />
             </div>
-          ))}
+          )))}
         </div>
 
         {/* End of Chapter */}

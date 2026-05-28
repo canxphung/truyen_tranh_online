@@ -1,5 +1,6 @@
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { comicApi, chapterApi, ApiError } from '../lib/api';
 import {
   AlertCircle,
   ArrowLeft,
@@ -65,11 +66,33 @@ function saveUploadToStorage(item: Record<string, unknown>) {
   }
 }
 
+type ComicOption = { id: string; title: string; nextChapter: number; price: number };
+
 export function CreatorUploadChapterPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState<UploadForm>(initialForm);
   const [notice, setNotice] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  // Danh sách truyện thật của tác giả + file PDF thật để upload lên backend.
+  const [comics, setComics] = useState<ComicOption[]>(demoComics);
+  const [comicId, setComicId] = useState<string>('');
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    comicApi
+      .listMine()
+      .then((list) => {
+        if (!list.length) return;
+        const opts: ComicOption[] = list.map((c) => ({ id: c.id, title: c.title, nextChapter: 1, price: 0 }));
+        setComics(opts);
+        setComicId(opts[0].id);
+        setForm((current) => ({ ...current, comic: opts[0].title }));
+      })
+      .catch(() => {
+        /* chưa đăng nhập author hoặc backend chưa chạy -> dùng demoComics */
+      });
+  }, []);
 
   const showNotice = (message: string) => {
     setNotice(message);
@@ -81,7 +104,8 @@ export function CreatorUploadChapterPage() {
   };
 
   const handleComicChange = (comicTitle: string) => {
-    const selectedComic = demoComics.find((comic) => comic.title === comicTitle);
+    const selectedComic = comics.find((comic) => comic.title === comicTitle);
+    if (selectedComic) setComicId(selectedComic.id);
     updateForm({
       comic: comicTitle,
       chapterNumber: selectedComic ? String(selectedComic.nextChapter) : form.chapterNumber,
@@ -102,15 +126,17 @@ export function CreatorUploadChapterPage() {
 
     if (!isPdf) {
       event.target.value = '';
+      setPdfFile(null);
       updateForm({ pdfFileName: '' });
       showNotice('Chỉ hỗ trợ upload file PDF. Không nhận ZIP, JPG, PNG, WEBP hoặc file ảnh rời.');
       return;
     }
 
+    setPdfFile(file);
     updateForm({ pdfFileName: file.name });
   };
 
-  const submitUpload = () => {
+  const submitUpload = async () => {
     if (!form.chapterTitle.trim()) {
       showNotice('Vui lòng nhập tên chương trước khi gửi duyệt.');
       return;
@@ -131,6 +157,32 @@ export function CreatorUploadChapterPage() {
       return;
     }
 
+    const price = Number.parseInt(form.price, 10) || 0;
+
+    // Nếu có truyện thật + file thật + đã đăng nhập author -> gọi API tạo chương (multipart).
+    if (comicId && pdfFile) {
+      setSubmitting(true);
+      try {
+        await chapterApi.create({
+          chapterNumber: Number.parseInt(form.chapterNumber, 10) || 1,
+          title: form.chapterTitle.trim(),
+          price,
+          comicId,
+          isFree: price === 0,
+          file: pdfFile,
+        });
+        setSubmitted(true);
+        showNotice('Đã tạo chương mới trên backend.');
+        return;
+      } catch (err) {
+        showNotice(err instanceof ApiError ? `Tạo chương thất bại: ${err.message}` : 'Tạo chương thất bại.');
+        return;
+      } finally {
+        setSubmitting(false);
+      }
+    }
+
+    // Fallback demo (chưa đăng nhập author / backend chưa sẵn sàng): lưu localStorage.
     saveUploadToStorage({
       title: `Chương ${form.chapterNumber}: ${form.chapterTitle.trim()}`,
       comic: form.comic,
@@ -138,16 +190,17 @@ export function CreatorUploadChapterPage() {
       updated: 'Vừa xong',
       fileName: form.pdfFileName,
       copyright: 'Đang kiểm tra bản quyền',
-      price: Number.parseInt(form.price, 10) || 0,
+      price,
       submittedAt: new Date().toISOString()
     });
 
     setSubmitted(true);
-    showNotice('Đã gửi chương mới vào hàng chờ duyệt nội dung và bản quyền.');
+    showNotice('Đã lưu chương ở chế độ demo (chưa kết nối backend author).');
   };
 
   const resetForm = () => {
     setForm(initialForm);
+    setPdfFile(null);
     setSubmitted(false);
   };
 
@@ -232,7 +285,7 @@ export function CreatorUploadChapterPage() {
                   <label className="space-y-2 sm:col-span-2">
                     <span className="text-sm font-semibold">Bộ truyện</span>
                     <select value={form.comic} onChange={(e) => handleComicChange(e.target.value)} className="w-full rounded-xl border border-border bg-input px-4 py-3">
-                      {demoComics.map((comic) => <option key={comic.id} value={comic.title}>{comic.title}</option>)}
+                      {comics.map((comic) => <option key={comic.id} value={comic.title}>{comic.title}</option>)}
                     </select>
                   </label>
                   <label className="space-y-2">
@@ -369,9 +422,9 @@ export function CreatorUploadChapterPage() {
                   <p>• Đủ 3 xác nhận bản quyền</p>
                 </div>
                 <div className="mt-6 flex flex-col gap-3">
-                  <Button onClick={submitUpload}>
+                  <Button onClick={submitUpload} disabled={submitting}>
                     <Send className="h-4 w-4" />
-                    Gửi duyệt chương
+                    {submitting ? 'Đang gửi...' : 'Gửi duyệt chương'}
                   </Button>
                   <Button variant="ghost" onClick={() => navigate('/creator')}>Hủy và về Dashboard</Button>
                 </div>

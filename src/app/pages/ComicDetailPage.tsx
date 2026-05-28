@@ -10,6 +10,7 @@ import { mockComics, mockChapters, mockPremiumSubscription } from '../data/mockD
 import { getPublicBlogPosts } from '../lib/blogStore';
 import { getMockSession } from '../lib/mockAuth';
 import { useEffect, useMemo, useState } from 'react';
+import { comicApi, chapterApi, mapComic, mapChapter, type UiComic, type UiChapter } from '../lib/api';
 
 export function ComicDetailPage() {
   const { id } = useParams();
@@ -26,7 +27,37 @@ export function ComicDetailPage() {
   const savedProgress = { chapter: 4, percent: 62, updatedAt: '2 giờ trước' };
   const premiumUsagePercent = Math.round((mockPremiumSubscription.usedThisMonth / mockPremiumSubscription.monthlyReadLimit) * 100);
 
-  const comic = mockComics.find((c) => c.id === id) || mockComics[0];
+  // Dữ liệu thật từ backend (fallback mock khi chưa có).
+  const [comicData, setComicData] = useState<UiComic | null>(null);
+  const [chapters, setChapters] = useState<UiChapter[]>(
+    mockChapters as unknown as UiChapter[]
+  );
+
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    comicApi
+      .get(id)
+      .then((c) => {
+        if (active) setComicData(mapComic(c));
+      })
+      .catch(() => {
+        if (active) setComicData(null);
+      });
+    chapterApi
+      .listByComic(id)
+      .then((list) => {
+        if (active && list.length) setChapters(list.map(mapChapter));
+      })
+      .catch(() => {
+        /* giữ chương mock */
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  const comic = comicData ?? mockComics.find((c) => c.id === id) ?? mockComics[0];
   const similarComics = mockComics.filter((c) => c.id !== id).slice(0, 4);
   const authorBlogPosts = useMemo(() => getPublicBlogPosts()
     .filter((post) => post.authorComicId === comic.id || post.authorName === comic.author)
@@ -93,7 +124,7 @@ export function ComicDetailPage() {
             <p className="text-foreground leading-relaxed">{comic.description}</p>
 
             <div className="flex flex-wrap gap-4">
-              <Link to={`/read/${comic.id}/1`}>
+              <Link to={`/read/${comic.id}/${chapters[0]?.chapterId ?? chapters[0]?.id ?? '1'}`}>
                 <Button size="lg">
                   <BookOpen className="w-5 h-5 mr-2" />
                   Đọc chương đầu
@@ -180,14 +211,19 @@ export function ComicDetailPage() {
         <section className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Danh sách chương</h2>
-            <span className="text-sm text-muted-foreground">{mockChapters.length} chương</span>
+            <span className="text-sm text-muted-foreground">{chapters.length} chương</span>
           </div>
           <div className="space-y-3">
-            {mockChapters.map((chapter) => (
+            {chapters.map((chapter) => (
               <div key={chapter.id} onClick={() => handleChapterClick(chapter)}>
                 <ChapterRow {...chapter} comicId={comic.id} />
               </div>
             ))}
+            {chapters.length === 0 && (
+              <div className="bg-card rounded-xl border border-border p-6 text-center text-muted-foreground">
+                Truyện chưa có chương nào.
+              </div>
+            )}
           </div>
         </section>
 

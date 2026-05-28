@@ -7,6 +7,7 @@ import { SearchBar } from '../components/ui/SearchBar';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { mockComics, mockCreators, categories } from '../data/mockData';
 import { useEffect, useMemo, useState } from 'react';
+import { comicApi, mapComic, type UiComic } from '../lib/api';
 
 const normalizeText = (value: string) =>
   value
@@ -37,27 +38,44 @@ export function HomePage() {
 
   const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl);
   const [searchTerm, setSearchTerm] = useState(searchFromUrl);
-  const featuredComic = mockComics[2];
+  // Danh sách truyện: tải từ backend, fallback về mock nếu lỗi/không có dữ liệu.
+  const [comics, setComics] = useState<UiComic[]>(mockComics as unknown as UiComic[]);
+  const featuredComic = comics[2] ?? comics[0];
 
   useEffect(() => {
     setSelectedCategory(categoryFromUrl);
     setSearchTerm(searchFromUrl);
   }, [categoryFromUrl, searchFromUrl]);
 
+  useEffect(() => {
+    let active = true;
+    comicApi
+      .list()
+      .then((data) => {
+        if (active && data.length) setComics(data.map(mapComic));
+      })
+      .catch(() => {
+        /* giữ nguyên mock khi backend chưa sẵn sàng */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const categoryCounts = useMemo(() => {
     return categories.reduce<Record<string, number>>((acc, category) => {
       acc[category] = category === 'Tất cả'
-        ? mockComics.length
-        : mockComics.filter((comic) => comic.genres.some((genre) => normalizeText(genre) === normalizeText(category))).length;
+        ? comics.length
+        : comics.filter((comic) => comic.genres.some((genre) => normalizeText(genre) === normalizeText(category))).length;
       return acc;
     }, {});
-  }, []);
+  }, [comics]);
 
   const filteredComics = useMemo(() => {
     const normalizedCategory = normalizeText(selectedCategory);
     const keyword = normalizeText(searchTerm);
 
-    return mockComics.filter((comic) => {
+    return comics.filter((comic) => {
       const matchCategory = selectedCategory === 'Tất cả' || comic.genres.some((genre) => normalizeText(genre) === normalizedCategory);
       const searchableText = normalizeText([
         comic.title,
@@ -68,7 +86,7 @@ export function HomePage() {
       const matchSearch = !keyword || searchableText.includes(keyword);
       return matchCategory && matchSearch;
     });
-  }, [selectedCategory, searchTerm]);
+  }, [selectedCategory, searchTerm, comics]);
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
@@ -186,10 +204,10 @@ export function HomePage() {
               <div className="h-2 bg-background/60 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-primary to-secondary"
-                  style={{ width: `${Math.max(8, (filteredComics.length / mockComics.length) * 100)}%` }}
+                  style={{ width: `${Math.max(8, (filteredComics.length / Math.max(comics.length, 1)) * 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Tìm thấy {filteredComics.length}/{mockComics.length} truyện phù hợp.</p>
+              <p className="text-xs text-muted-foreground">Tìm thấy {filteredComics.length}/{comics.length} truyện phù hợp.</p>
             </div>
           </div>
 

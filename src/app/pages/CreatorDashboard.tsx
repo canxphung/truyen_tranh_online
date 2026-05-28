@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { comicApi, ApiError, type ComicResponse } from '../lib/api';
 import {
   DollarSign,
   Eye,
@@ -81,6 +82,31 @@ export function CreatorDashboard() {
     { id: '3', title: 'Vùng Đất Quên Lãng', status: 'pending', chapters: 5, revenue: 0, views: 0, purchases: 0, price: 20, pending: 5 }
   ]);
 
+  // Tải truyện thật của tác giả (cần đăng nhập role AUTHOR). Fallback mock nếu lỗi.
+  useEffect(() => {
+    comicApi
+      .listMine()
+      .then((list) => {
+        if (!list.length) return;
+        setMyComics(
+          list.map((c: ComicResponse) => ({
+            id: c.id,
+            title: c.title,
+            status: c.status === 'COMPLETED' ? 'published' : c.status === 'HIATUS' ? 'pending' : 'published',
+            chapters: 0,
+            revenue: 0,
+            views: 0,
+            purchases: 0,
+            price: 0,
+            pending: 0,
+          }))
+        );
+      })
+      .catch(() => {
+        /* giữ mock */
+      });
+  }, []);
+
   const chapterPerformance = [
     { chapter: 'Chương 45', views: 125000, purchases: 850, revenue: 12750000, dropOff: '12%' },
     { chapter: 'Chương 44', views: 132000, purchases: 920, revenue: 13800000, dropOff: '10%' },
@@ -136,13 +162,45 @@ export function CreatorDashboard() {
 
 
 
-  const submitComic = (status: 'draft' | 'pending' = 'pending') => {
+  const submitComic = async (status: 'draft' | 'pending' = 'pending') => {
     if (!comicForm.title.trim()) {
       showNotice('Vui lòng nhập tên bộ truyện.');
       return;
     }
 
     const price = Number.parseInt(comicForm.price, 10) || 0;
+
+    // Thử tạo truyện thật trên backend (backend chỉ nhận title/description/status).
+    try {
+      const created = await comicApi.create({
+        title: comicForm.title.trim(),
+        description: comicForm.description.trim() || undefined,
+        status: 'ONGOING',
+      });
+      setMyComics((current) => [
+        {
+          id: created.id,
+          title: created.title,
+          status: 'published',
+          chapters: 0,
+          revenue: 0,
+          views: 0,
+          purchases: 0,
+          price,
+          pending: 0,
+        },
+        ...current,
+      ]);
+      setActiveModal(null);
+      showNotice('Đã tạo bộ truyện mới trên backend.');
+      return;
+    } catch (err) {
+      // Chưa đăng nhập author / backend chưa chạy -> fallback demo
+      if (!(err instanceof ApiError && err.status === 0)) {
+        showNotice(err instanceof ApiError ? `Tạo truyện thất bại: ${err.message}` : 'Tạo truyện thất bại.');
+        return;
+      }
+    }
 
     setMyComics((current) => [
       {
@@ -160,7 +218,7 @@ export function CreatorDashboard() {
     ]);
 
     setActiveModal(null);
-    showNotice(status === 'pending' ? 'Đã gửi bộ truyện mới để Admin duyệt.' : 'Đã lưu bộ truyện mới vào bản nháp.');
+    showNotice('Đã lưu bộ truyện ở chế độ demo (chưa kết nối backend author).');
   };
 
   return (

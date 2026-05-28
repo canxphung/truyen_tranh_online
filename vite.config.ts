@@ -31,6 +31,11 @@ export default defineConfig({
     },
   },
 
+  // Backend ComicFlow chỉ cho phép CORS từ http://localhost:3000
+  server: {
+    port: 3000,
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })

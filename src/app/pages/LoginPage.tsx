@@ -5,7 +5,17 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
 import { demoAccounts, type DemoAccount, type DemoRole } from '../data/mockData';
-import { getMockSession, loginMock, quickLogin, roleHome, roleLabel, type MockSession } from '../lib/mockAuth';
+import {
+  getMockSession,
+  loginMock,
+  quickLogin,
+  roleHome,
+  roleLabel,
+  setRealSession,
+  demoRoleToApiRole,
+  type MockSession,
+} from '../lib/mockAuth';
+import { authApi, setToken, ApiError } from '../lib/api';
 
 const roleIcon = {
   reader: User,
@@ -26,6 +36,9 @@ export function LoginPage() {
   const [password, setPassword] = useState('123456');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState('');
   const [currentSession, setCurrentSession] = useState<MockSession | null>(null);
 
   const selectedAccount = useMemo(
@@ -44,13 +57,56 @@ export function LoginPage() {
     setError('');
   };
 
-  const submitLogin = () => {
-    const session = loginMock(email, password);
-    if (!session) {
-      setError('Sai email hoặc mật khẩu demo. Có thể bấm chọn nhanh một tài khoản bên dưới.');
+  // Đăng nhập thật qua backend ComicFlow; nếu lỗi mạng thì thử tài khoản demo.
+  const submitLogin = async () => {
+    setError('');
+    setInfo('');
+    setLoading(true);
+    try {
+      const { accessToken } = await authApi.login(email.trim(), password);
+      setToken(accessToken);
+      const session = setRealSession({ email: email.trim(), role: selectedRole });
+      navigate(roleHome(session.role));
+    } catch (err) {
+      // Backend chưa chạy/không kết nối được -> fallback dữ liệu demo
+      if (err instanceof ApiError && err.status === 0) {
+        const session = loginMock(email, password);
+        if (session) {
+          setInfo('Không gọi được backend, đã đăng nhập bằng dữ liệu demo.');
+          navigate(roleHome(session.role));
+          return;
+        }
+      }
+      setError(err instanceof ApiError ? err.message : 'Đăng nhập thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Đăng ký tài khoản thật theo role đang chọn.
+  const submitRegister = async () => {
+    setError('');
+    setInfo('');
+    if (!username.trim()) {
+      setError('Nhập tên hiển thị (username) để đăng ký.');
       return;
     }
-    navigate(roleHome(session.role));
+    setLoading(true);
+    try {
+      const { accessToken } = await authApi.register({
+        email: email.trim(),
+        username: username.trim(),
+        password,
+        role: demoRoleToApiRole(selectedRole),
+      });
+      setToken(accessToken);
+      const session = setRealSession({ email: email.trim(), role: selectedRole, name: username.trim() });
+      navigate(roleHome(session.role));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Đăng ký thất bại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loginByRole = (role: DemoRole) => {
@@ -97,8 +153,8 @@ export function LoginPage() {
 
         <div className="grid lg:grid-cols-[1.05fr_1.4fr] gap-8">
           <Card>
-            <h2 className="text-2xl font-bold mb-2">Form đăng nhập mock</h2>
-            <p className="text-sm text-muted-foreground mb-6">Mặc định tất cả tài khoản demo dùng mật khẩu <span className="font-semibold text-foreground">123456</span>.</p>
+            <h2 className="text-2xl font-bold mb-2">Đăng nhập / Đăng ký</h2>
+            <p className="text-sm text-muted-foreground mb-6">Kết nối backend ComicFlow. Vai trò chọn ở cột bên phải quyết định nơi điều hướng và role khi đăng ký.</p>
 
             <div className="space-y-5">
               <div>
@@ -108,6 +164,16 @@ export function LoginPage() {
                   onChange={(event) => setEmail(event.target.value)}
                   className="w-full px-4 py-3 bg-input rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
                   placeholder="reader@inkverse.demo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">Tên hiển thị <span className="text-muted-foreground font-normal">(chỉ cần khi đăng ký)</span></label>
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  className="w-full px-4 py-3 bg-input rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="username"
                 />
               </div>
 
@@ -132,10 +198,16 @@ export function LoginPage() {
               </div>
 
               {error && <p className="text-sm text-error">{error}</p>}
+              {info && <p className="text-sm text-warning">{info}</p>}
 
-              <Button className="w-full" size="lg" onClick={submitLogin}>
-                Đăng nhập với dữ liệu mock
-              </Button>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Button className="w-full" size="lg" onClick={submitLogin} disabled={loading}>
+                  {loading ? 'Đang xử lý...' : 'Đăng nhập'}
+                </Button>
+                <Button className="w-full" size="lg" variant="secondary" onClick={submitRegister} disabled={loading}>
+                  Đăng ký
+                </Button>
+              </div>
 
               <div className="grid sm:grid-cols-3 gap-3">
                 {demoAccounts.map((account) => (
