@@ -312,14 +312,14 @@ export function EnhancedComments({ comicId, chapterId }: EnhancedCommentsProps) 
         </h3>
         <div className="flex gap-2">
           <Button
-            variant={sortBy === 'newest' ? 'primary' : 'ghost'}
+            variant={sortBy === 'newest' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setSortBy('newest')}
           >
             Mới nhất
           </Button>
           <Button
-            variant={sortBy === 'popular' ? 'primary' : 'ghost'}
+            variant={sortBy === 'popular' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setSortBy('popular')}
           >

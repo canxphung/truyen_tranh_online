@@ -111,7 +111,7 @@ export function WalletPage() {
                       {pkg.price.toLocaleString()}đ
                     </p>
                     <Button
-                      variant={pkg.popular ? 'primary' : 'secondary'}
+                      variant={pkg.popular ? 'default' : 'secondary'}
                       className="w-full"
                       onClick={() => handlePurchase(pkg.id)}
                     >
