@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { comicApi, chapterApi, ApiError } from '../lib/api';
 import {
@@ -92,6 +92,8 @@ export function CreatorUploadChapterPage() {
   const [comicSearch, setComicSearch] = useState('');
   const [comicPickerOpen, setComicPickerOpen] = useState(false);
   const [comicLoadState, setComicLoadState] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredComics = useMemo(() => {
     const keyword = normalizeText(comicSearch);
@@ -214,6 +216,14 @@ export function CreatorUploadChapterPage() {
 
     setPdfFile(file);
     updateForm({ pdfFileName: file.name });
+  };
+
+  const clearPdfFile = () => {
+    setPdfFile(null);
+    updateForm({ pdfFileName: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const submitUpload = async () => {
@@ -528,13 +538,17 @@ export function CreatorUploadChapterPage() {
                 <div className="rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-5">
                   <input
                     type="file"
+                    ref={fileInputRef}
                     accept="application/pdf,.pdf"
                     onChange={handleChapterPdfChange}
                     className="w-full rounded-xl border border-border bg-input px-4 py-3 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground"
                   />
                   {form.pdfFileName ? (
-                    <div className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success">
-                      Đã chọn PDF: {form.pdfFileName}
+                    <div className="mt-4 flex items-center justify-between rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success">
+                      <span>Đã chọn PDF: {form.pdfFileName}</span>
+                      <button type="button" onClick={clearPdfFile} className="rounded-md p-1 text-red-500 hover:bg-red-500/20 hover:text-red-600 transition-colors" aria-label="Xóa file">
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
                   ) : (
                     <p className="mt-4 text-sm text-muted-foreground">Chưa chọn file. File hợp lệ phải có định dạng <strong>.pdf</strong>.</p>
