@@ -7,9 +7,9 @@ import { ComicCard } from '../components/comic/ComicCard';
 import { EnhancedComments } from '../components/comic/EnhancedComments';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 // import { mockComics, mockChapters, mockPremiumSubscription } from '../data/mockData';
-const mockComics: any[] = [];
-const mockChapters: any[] = [];
-const mockPremiumSubscription: any = {
+const mockComics: UiComic[] = [];
+const mockChapters: UiChapter[] = [];
+const mockPremiumSubscription = {
   planName: '',
   remainingReads: 0,
   usedThisMonth: 0,
@@ -24,7 +24,7 @@ import { comicApi, chapterApi, mapComic, mapChapter, type UiComic, type UiChapte
 export function ComicDetailPage() {
   const { id } = useParams();
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-  const [selectedChapter, setSelectedChapter] = useState<any>(null);
+  const [selectedChapter, setSelectedChapter] = useState<UiChapter | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [notifyNewChapter, setNotifyNewChapter] = useState(true);
   const [coinBalance, setCoinBalance] = useState(550);
@@ -38,9 +38,7 @@ export function ComicDetailPage() {
 
   // Dữ liệu thật từ backend (fallback mock khi chưa có).
   const [comicData, setComicData] = useState<UiComic | null>(null);
-  const [chapters, setChapters] = useState<UiChapter[]>(
-    mockChapters as unknown as UiChapter[]
-  );
+  const [chapters, setChapters] = useState<UiChapter[]>(mockChapters);
 
   useEffect(() => {
     if (!id) return;
@@ -66,13 +64,25 @@ export function ComicDetailPage() {
     };
   }, [id]);
 
-  const comic: any = comicData ?? mockComics.find((c) => c.id === id) ?? mockComics[0] ?? { id: '', title: '', author: '', cover: '', genres: [], rating: 0, views: 0, followers: 0, description: '', chapters: 0 };
+  const comic: UiComic = comicData ?? mockComics.find((c) => c.id === id) ?? mockComics[0] ?? {
+    id: '',
+    title: '',
+    author: '',
+    cover: '',
+    rating: 0,
+    views: 0,
+    pricePerChapter: 0,
+    genres: [],
+    description: '',
+    followers: 0,
+    chapters: 0,
+  };
   const similarComics = mockComics.filter((c) => c.id !== id).slice(0, 4);
   const authorBlogPosts = useMemo(() => getPublicBlogPosts()
     .filter((post) => post.authorComicId === comic.id || post.authorName === comic.author)
     .slice(0, 3), [comic.id, comic.author]);
 
-  const handleChapterClick = (chapter: any) => {
+  const handleChapterClick = (chapter: UiChapter) => {
     if (chapter.status === 'locked' || chapter.status === 'premium') {
       setSelectedChapter(chapter);
       setShowPurchaseModal(true);
