@@ -15,7 +15,10 @@ import {
   Coins,
   Lock,
   Crown,
-  CalendarClock
+  CalendarClock,
+  ExternalLink,
+  FileWarning,
+  RefreshCcw
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
@@ -34,6 +37,27 @@ const mockPremiumSubscription: any = {
 };
 import { chapterApi, paymentApi, ApiError } from '../lib/api';
 
+type PdfLoadState = 'idle' | 'loading' | 'ready' | 'needsAction' | 'failed';
+
+const getPdfUrlProblem = (url: string) => {
+  try {
+    const parsedUrl = new URL(url, window.location.origin);
+    if (parsedUrl.hostname === 'example.com') {
+      return 'File đọc của chương này chưa sẵn sàng. Vui lòng quay lại sau ít phút.';
+    }
+  } catch {
+    return 'File đọc của chương này chưa sẵn sàng. Vui lòng quay lại sau ít phút.';
+  }
+
+  if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('/')) {
+    return 'File đọc của chương này chưa sẵn sàng. Vui lòng quay lại sau ít phút.';
+  }
+
+  return '';
+};
+
+const toPdfViewerUrl = (url: string) => `${url}#toolbar=1&navpanes=0&view=FitH`;
+
 export function ReaderPage() {
   const { comicId, chapterId } = useParams();
   const [showUI, setShowUI] = useState(true);
@@ -48,6 +72,8 @@ export function ReaderPage() {
   const [paywall, setPaywall] = useState<{ message: string } | null>(null);
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState('');
+  const [pdfLoadState, setPdfLoadState] = useState<PdfLoadState>('idle');
+  const [pdfViewerKey, setPdfViewerKey] = useState(0);
 
   const comic: any = mockComics.find((c) => c.id === comicId) || mockComics[0] || { id: comicId ?? '', title: '', author: '', cover: '', genres: [], chapters: 0 };
   const currentChapter: any = mockChapters.find((c) => c.id === chapterId) || mockChapters[0] || { id: chapterId ?? '', title: '', number: 0, status: 'free' };
@@ -88,6 +114,27 @@ export function ReaderPage() {
     };
   }, [chapterId]);
 
+  useEffect(() => {
+    const pdfUrl = apiChapter?.url?.trim();
+    if (!pdfUrl) {
+      setPdfLoadState('idle');
+      return;
+    }
+
+    const problem = getPdfUrlProblem(pdfUrl);
+    if (problem) {
+      setPdfLoadState('failed');
+      return;
+    }
+
+    setPdfLoadState('loading');
+    const timer = window.setTimeout(() => {
+      setPdfLoadState((current) => (current === 'loading' ? 'needsAction' : current));
+    }, 4500);
+
+    return () => window.clearTimeout(timer);
+  }, [apiChapter?.url, pdfViewerKey]);
+
   const handleBuyChapter = async () => {
     if (!chapterId) return;
     setPayError('');
@@ -104,6 +151,11 @@ export function ReaderPage() {
 
   const chapterTitle = apiChapter?.title ?? currentChapter.title;
   const chapterNumber = apiChapter?.number ?? currentChapter.number;
+  const pdfUrl = apiChapter?.url?.trim() || '';
+  const pdfUrlProblem = pdfUrl ? getPdfUrlProblem(pdfUrl) : '';
+  const pdfViewerUrl = pdfUrl && !pdfUrlProblem ? toPdfViewerUrl(pdfUrl) : '';
+  const hasReadableChapter = Boolean(apiChapter || currentChapter.number > 0);
+  const hasPremiumQuotaInfo = mockPremiumSubscription.resetAt || mockPremiumSubscription.remainingReads > 0;
 
   const mockComments = [
     { id: '1', user: 'Minh Anh', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=1', text: 'Chương này hay quá! 🔥', likes: 23, time: '5 phút trước' },
@@ -151,16 +203,22 @@ export function ReaderPage() {
       </div>
 
       {/* Auto-save + Premium quota status */}
-      {showUI && (
-        <div className="fixed left-1/2 -translate-x-1/2 top-20 z-40 w-[min(92vw,760px)] rounded-2xl bg-card/95 border border-border backdrop-blur-xl text-xs text-muted-foreground shadow-lg p-3" onClick={(e) => e.stopPropagation()}>
+      {showUI && hasReadableChapter && (
+        <div className="fixed left-1/2 -translate-x-1/2 top-20 z-40 w-[min(92vw,560px)] rounded-full bg-card/90 border border-border backdrop-blur-xl text-xs text-muted-foreground shadow-lg px-4 py-2" onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <span className="text-success font-semibold">●</span> Lưu tiến độ đọc: chương {currentChapter.number}, {Math.round(progress)}% · Tự cuộn lên đầu khi đổi chương
+              <span className="text-success font-semibold">●</span> Lưu tiến độ: chương {chapterNumber || '-'}, {Math.round(progress)}%
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="premium"> Còn {mockPremiumSubscription.remainingReads} lượt Premium</Badge>
-              <span className="inline-flex items-center gap-1"><CalendarClock className="w-3 h-3" /> Reset {mockPremiumSubscription.resetAt.split(' ')[0]}</span>
-            </div>
+            {hasPremiumQuotaInfo && (
+              <div className="flex flex-wrap items-center gap-2">
+                {mockPremiumSubscription.remainingReads > 0 && (
+                  <Badge variant="premium">Còn {mockPremiumSubscription.remainingReads} lượt Premium</Badge>
+                )}
+                {mockPremiumSubscription.resetAt && (
+                  <span className="inline-flex items-center gap-1"><CalendarClock className="w-3 h-3" /> Reset {mockPremiumSubscription.resetAt.split(' ')[0]}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -218,14 +276,102 @@ export function ReaderPage() {
           <div className="space-y-0" onClick={(e) => e.stopPropagation()}>
             {apiChapter?.url ? (
               // Nội dung chương thật là file PDF trên MinIO.
-              <object data={apiChapter.url} type="application/pdf" className="w-full h-[85vh] border-x border-border bg-muted">
-                <div className="p-8 text-center text-muted-foreground">
-                  Không hiển thị được PDF trực tiếp.{' '}
-                  <a href={apiChapter.url} target="_blank" rel="noreferrer" className="text-primary underline">
-                    Mở chương trong tab mới
-                  </a>
+              <div className="mx-4 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-black/10">
+                <div className="flex flex-col gap-3 border-b border-border bg-card/95 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Chương {chapterNumber}: {chapterTitle}</p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {pdfLoadState === 'failed'
+                        ? 'PDF chưa thể mở từ URL hiện tại.'
+                        : pdfLoadState === 'ready'
+                          ? 'PDF đã tải trong trình đọc.'
+                          : 'Đang chuẩn bị trình đọc PDF.'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {!pdfUrlProblem && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setPdfViewerKey((key) => key + 1);
+                          setPdfLoadState('loading');
+                        }}
+                      >
+                        <RefreshCcw className="w-4 h-4" />
+                        Tải lại
+                      </Button>
+                    )}
+                    <a href={pdfUrl} target="_blank" rel="noreferrer">
+                      <Button size="sm">
+                        <ExternalLink className="w-4 h-4" />
+                        Mở tab mới
+                      </Button>
+                    </a>
+                  </div>
                 </div>
-              </object>
+
+                {pdfUrlProblem ? (
+                  <div className="flex min-h-[55vh] flex-col items-center justify-center gap-4 bg-muted/20 p-8 text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-warning/15">
+                      <FileWarning className="h-8 w-8 text-warning" />
+                    </div>
+                    <div className="max-w-xl">
+                      <h2 className="text-xl font-bold">Chưa mở được chương</h2>
+                      <p className="mt-2 text-sm text-muted-foreground">{pdfUrlProblem}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setPdfViewerKey((key) => key + 1);
+                          setPdfLoadState('loading');
+                        }}
+                      >
+                        <RefreshCcw className="w-4 h-4" />
+                        Thử lại
+                      </Button>
+                      <Link to={`/comic/${comicId}`} onClick={(e) => e.stopPropagation()}>
+                        <Button>Về trang truyện</Button>
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative min-h-[85vh] bg-muted">
+                    {pdfLoadState === 'loading' && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+                        <div className="rounded-2xl border border-border bg-card px-5 py-4 text-center shadow-xl">
+                          <RefreshCcw className="mx-auto mb-3 h-6 w-6 animate-spin text-primary" />
+                          <p className="font-semibold">Đang tải PDF...</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Nếu file lớn, trình đọc có thể cần vài giây.</p>
+                        </div>
+                      </div>
+                    )}
+                    {pdfLoadState === 'needsAction' && (
+                      <div className="absolute left-4 right-4 top-4 z-10 rounded-xl border border-warning/30 bg-card/95 p-4 text-sm shadow-lg">
+                        <p className="font-semibold text-foreground">PDF tải hơi lâu hoặc trình duyệt không hỗ trợ nhúng.</p>
+                        <p className="mt-1 text-muted-foreground">Bạn vẫn có thể mở chương trong tab mới, hoặc thử tải lại khung đọc.</p>
+                      </div>
+                    )}
+                    <object
+                      key={pdfViewerKey}
+                      data={pdfViewerUrl}
+                      type="application/pdf"
+                      className="h-[85vh] w-full bg-muted"
+                      onLoad={() => setPdfLoadState('ready')}
+                      onError={() => setPdfLoadState('needsAction')}
+                    >
+                      <div className="flex min-h-[55vh] flex-col items-center justify-center gap-4 p-8 text-center text-muted-foreground">
+                        <FileWarning className="h-10 w-10 text-warning" />
+                        <div>
+                          <p className="font-semibold text-foreground">Trình duyệt không hiển thị được PDF trực tiếp.</p>
+                          <p className="mt-1 text-sm">Hãy mở chương trong tab mới để đọc bằng PDF viewer của trình duyệt.</p>
+                        </div>
+                      </div>
+                    </object>
+                  </div>
+                )}
+              </div>
             ) : (
               panelImages.map((src, index) => (
                 <div key={src} className="w-full">

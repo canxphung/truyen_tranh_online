@@ -168,13 +168,15 @@ export function ComicDetailPage() {
 
               <div className="bg-muted/30 rounded-xl p-4 border border-border">
                 <h3 className="font-semibold flex items-center gap-2 mb-3"><Bell className="w-4 h-4 text-warning" /> Theo dõi & thông báo</h3>
-                <p className="text-sm text-muted-foreground mb-4">Nhận thông báo khi có chương mới, phản hồi bình luận hoặc ưu đãi mua chương.</p>
+                <p className="text-sm text-muted-foreground mb-4">Theo dõi truyện để không bỏ lỡ chương mới.</p>
                 <button
                   onClick={() => setNotifyNewChapter(!notifyNewChapter)}
                   className={`w-full px-4 py-3 rounded-xl border transition-all text-left ${notifyNewChapter ? 'border-primary/40 bg-primary/10' : 'border-border bg-background/40'}`}
                 >
-                  <span className="font-semibold">{notifyNewChapter ? 'Đang bật thông báo chương mới' : 'Thông báo chương mới đang tắt'}</span>
-                  <span className="block text-xs text-muted-foreground mt-1">Có thể kết nối với email, push notification hoặc in-app notification.</span>
+                  <span className="font-semibold">{notifyNewChapter ? 'Đã bật nhắc chương mới' : 'Nhắc chương mới đang tắt'}</span>
+                  <span className="block text-xs text-muted-foreground mt-1">
+                    {notifyNewChapter ? 'Bạn sẽ được báo khi truyện có chương mới.' : 'Bật lại bất cứ lúc nào khi muốn theo dõi tiếp.'}
+                  </span>
                 </button>
               </div>
 
