@@ -4,7 +4,20 @@ import { BookOpen, Coins, LogOut, Shield, User, CheckCircle, Clock, Bell, Bookma
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
-import { demoAccounts, mockCoinPurchaseAuditTrail, mockFollowedComics, mockPremiumSubscription, mockReadingProgress, mockUnlockedChapters } from '../data/mockData';
+// import { demoAccounts, mockCoinPurchaseAuditTrail, mockFollowedComics, mockPremiumSubscription, mockReadingProgress, mockUnlockedChapters } from '../data/mockData';
+const demoAccounts: any[] = [];
+const mockCoinPurchaseAuditTrail: any[] = [];
+const mockFollowedComics: any[] = [];
+const mockReadingProgress: any[] = [];
+const mockUnlockedChapters: any[] = [];
+const mockPremiumSubscription: any = {
+  planName: '',
+  remainingReads: 0,
+  usedThisMonth: 0,
+  monthlyReadLimit: 1,
+  resetAt: '',
+  lastPremiumRead: { comicTitle: '', chapterNumber: 0 },
+};
 import { clearMockSession, getMockSession, quickLogin, roleHome, roleLabel, type MockSession } from '../lib/mockAuth';
 
 const routeByRole = {

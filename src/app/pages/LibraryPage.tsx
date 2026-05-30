@@ -4,7 +4,15 @@ import { BookOpen, Clock, Heart, Download, Filter, Trash2, Eye, Crown, CalendarC
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { mockComics, mockPremiumSubscription } from '../data/mockData';
+// import { mockComics, mockPremiumSubscription } from '../data/mockData';
+const mockComics: any[] = [];
+const mockPremiumSubscription: any = {
+  planName: '',
+  remainingReads: 0,
+  usedThisMonth: 0,
+  monthlyReadLimit: 1,
+  resetAt: '',
+};
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 
 export function LibraryPage() {

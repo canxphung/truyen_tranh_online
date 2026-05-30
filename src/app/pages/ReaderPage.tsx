@@ -19,8 +19,20 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
-import { defaultDemoPanels, demoChapterPanels, demoPanelFallbackUrl, mockComics, mockChapters, mockPremiumSubscription } from '../data/mockData';
-import { chapterApi } from '../lib/api';
+// import { defaultDemoPanels, demoChapterPanels, demoPanelFallbackUrl, mockComics, mockChapters, mockPremiumSubscription } from '../data/mockData';
+const defaultDemoPanels: string[] = [];
+const demoChapterPanels: Record<string, string[]> = {};
+const demoPanelFallbackUrl = 'https://placehold.co/1200x1600?text=Loading';
+const mockComics: any[] = [];
+const mockChapters: any[] = [];
+const mockPremiumSubscription: any = {
+  planName: '',
+  remainingReads: 0,
+  usedThisMonth: 0,
+  monthlyReadLimit: 1,
+  resetAt: '',
+};
+import { chapterApi, paymentApi, ApiError } from '../lib/api';
 
 export function ReaderPage() {
   const { comicId, chapterId } = useParams();
@@ -32,9 +44,13 @@ export function ReaderPage() {
   const [autoSave, setAutoSave] = useState(true);
   // Nội dung chương thật từ backend (PDF url + tiêu đề/số chương).
   const [apiChapter, setApiChapter] = useState<{ url: string | null; title: string; number: number } | null>(null);
+  // Paywall khi BE từ chối chapter paid (chưa mua + chưa có sub / hết quota sub).
+  const [paywall, setPaywall] = useState<{ message: string } | null>(null);
+  const [payLoading, setPayLoading] = useState(false);
+  const [payError, setPayError] = useState('');
 
-  const comic = mockComics.find((c) => c.id === comicId) || mockComics[0];
-  const currentChapter = mockChapters.find((c) => c.id === chapterId) || mockChapters[0];
+  const comic: any = mockComics.find((c) => c.id === comicId) || mockComics[0] || { id: comicId ?? '', title: '', author: '', cover: '', genres: [], chapters: 0 };
+  const currentChapter: any = mockChapters.find((c) => c.id === chapterId) || mockChapters[0] || { id: chapterId ?? '', title: '', number: 0, status: 'free' };
   const currentIndex = mockChapters.findIndex((c) => c.id === currentChapter.id);
   const nextChapter = mockChapters[currentIndex + 1];
   const prevChapter = currentIndex > 0 ? mockChapters[currentIndex - 1] : null;
@@ -47,23 +63,44 @@ export function ReaderPage() {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [comicId, chapterId]);
 
-  // Tải chương thật theo chapterId (UUID). Nếu lỗi -> dùng panel demo.
+  // Tải chương thật theo chapterId (UUID). Lỗi 400 nghĩa là chương paid và user chưa
+  // có quyền (chưa mua + chưa có sub / hết quota) -> hiện paywall thay vì fallback demo.
   useEffect(() => {
     if (!chapterId) return;
     let active = true;
     setApiChapter(null);
+    setPaywall(null);
+    setPayError('');
     chapterApi
       .get(chapterId)
       .then((c) => {
         if (active) setApiChapter({ url: c.url, title: c.title, number: c.chapterNumber });
       })
-      .catch(() => {
-        /* fallback panel demo */
+      .catch((err) => {
+        if (!active) return;
+        if (err instanceof ApiError && err.status === 400) {
+          setPaywall({ message: err.message });
+        }
+        // Lỗi khác (mất mạng, 401, 404...) -> giữ fallback panel demo cũ.
       });
     return () => {
       active = false;
     };
   }, [chapterId]);
+
+  const handleBuyChapter = async () => {
+    if (!chapterId) return;
+    setPayError('');
+    setPayLoading(true);
+    try {
+      const { payUrl } = await paymentApi.createChapterPayment(chapterId);
+      window.location.href = payUrl;
+    } catch (err) {
+      setPayError(err instanceof ApiError ? err.message : 'Tạo thanh toán thất bại.');
+    } finally {
+      setPayLoading(false);
+    }
+  };
 
   const chapterTitle = apiChapter?.title ?? currentChapter.title;
   const chapterNumber = apiChapter?.number ?? currentChapter.number;
@@ -152,36 +189,64 @@ export function ReaderPage() {
           </div>
         </div> */}
 
-        <div className="space-y-0" onClick={(e) => e.stopPropagation()}>
-          {apiChapter?.url ? (
-            // Nội dung chương thật là file PDF trên MinIO.
-            <object data={apiChapter.url} type="application/pdf" className="w-full h-[85vh] border-x border-border bg-muted">
-              <div className="p-8 text-center text-muted-foreground">
-                Không hiển thị được PDF trực tiếp.{' '}
-                <a href={apiChapter.url} target="_blank" rel="noreferrer" className="text-primary underline">
-                  Mở chương trong tab mới
-                </a>
-              </div>
-            </object>
-          ) : (
-          panelImages.map((src, index) => (
-            <div key={src} className="w-full">
-              <img
-                src={src}
-                alt={`Panel ${index + 1}`}
-                loading="lazy"
-                className="w-full h-auto bg-muted border-x border-border"
-                onLoad={() => setProgress(((index + 1) / panelImages.length) * 100)}
-                onError={(event) => {
-                  const image = event.currentTarget;
-                  if (image.src !== demoPanelFallbackUrl) {
-                    image.src = demoPanelFallbackUrl;
-                  }
-                }}
-              />
+        {paywall ? (
+          <div className="mx-4 my-8 rounded-2xl border border-primary/30 bg-card/95 p-8 text-center space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/15">
+              <Lock className="w-8 h-8 text-primary" />
             </div>
-          )))}
-        </div>
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Chương này cần mở khoá</h2>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                {paywall.message || 'Bạn chưa mua chương này hoặc gói Premium đã hết quota.'}
+              </p>
+            </div>
+            {payError && <p className="text-sm text-error">{payError}</p>}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              <Button onClick={handleBuyChapter} disabled={payLoading} size="lg">
+                <Coins className="w-5 h-5 mr-2" />
+                {payLoading ? 'Đang tạo đơn...' : 'Mua chương lẻ'}
+              </Button>
+              <Link to="/premium" onClick={(e) => e.stopPropagation()}>
+                <Button variant="secondary" size="lg" className="w-full">
+                  <Crown className="w-5 h-5 mr-2" />
+                  Mua gói Premium
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-0" onClick={(e) => e.stopPropagation()}>
+            {apiChapter?.url ? (
+              // Nội dung chương thật là file PDF trên MinIO.
+              <object data={apiChapter.url} type="application/pdf" className="w-full h-[85vh] border-x border-border bg-muted">
+                <div className="p-8 text-center text-muted-foreground">
+                  Không hiển thị được PDF trực tiếp.{' '}
+                  <a href={apiChapter.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                    Mở chương trong tab mới
+                  </a>
+                </div>
+              </object>
+            ) : (
+              panelImages.map((src, index) => (
+                <div key={src} className="w-full">
+                  <img
+                    src={src}
+                    alt={`Panel ${index + 1}`}
+                    loading="lazy"
+                    className="w-full h-auto bg-muted border-x border-border"
+                    onLoad={() => setProgress(((index + 1) / panelImages.length) * 100)}
+                    onError={(event) => {
+                      const image = event.currentTarget;
+                      if (image.src !== demoPanelFallbackUrl) {
+                        image.src = demoPanelFallbackUrl;
+                      }
+                    }}
+                  />
+                </div>
+              ))
+            )}
+          </div>
+        )}
 
         {/* End of Chapter */}
         <div className="px-4 py-16 text-center space-y-6">

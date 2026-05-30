@@ -1,27 +1,40 @@
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { comicApi, chapterApi, ApiError } from '../lib/api';
 import {
   AlertCircle,
   ArrowLeft,
+  BookOpen,
   CheckCircle,
+  ChevronDown,
   FileText,
   Info,
+  Search,
   Send,
   ShieldCheck,
-  Upload
+  Upload,
+  X
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 
-const STORAGE_KEY = 'inkverse.creator.chapterUploads';
+const normalizeText = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd')
+    .trim();
 
-const demoComics = [
-  { id: '1', title: 'Học Viện Ánh Trăng', nextChapter: 46, price: 15 },
-  { id: '2', title: 'Người Gác Cổng Linh Giới', nextChapter: 39, price: 15 },
-  { id: '3', title: 'Vùng Đất Quên Lãng', nextChapter: 6, price: 20 }
-];
+type ComicOption = {
+  id: string;
+  title: string;
+  nextChapter: number;
+  price: number;
+  cover?: string | null;
+  status?: string;
+};
 
 type UploadForm = {
   comic: string;
@@ -41,10 +54,10 @@ type UploadForm = {
 };
 
 const initialForm: UploadForm = {
-  comic: demoComics[0].title,
-  chapterNumber: String(demoComics[0].nextChapter),
+  comic: '',
+  chapterNumber: '',
   chapterTitle: '',
-  price: String(demoComics[0].price),
+  price: '0',
   releaseTime: '',
   rating: '13+',
   note: '',
@@ -57,16 +70,15 @@ const initialForm: UploadForm = {
   scanConsent: false
 };
 
-function saveUploadToStorage(item: Record<string, unknown>) {
-  try {
-    const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([item, ...current].slice(0, 20)));
-  } catch {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([item]));
-  }
-}
-
-type ComicOption = { id: string; title: string; nextChapter: number; price: number };
+const formatComicStatus = (status?: string) => {
+  if (!status) return '';
+  const labels: Record<string, string> = {
+    ONGOING: 'Đang phát hành',
+    COMPLETED: 'Hoàn thành',
+    HIATUS: 'Tạm dừng',
+  };
+  return labels[status] || status;
+};
 
 export function CreatorUploadChapterPage() {
   const navigate = useNavigate();
@@ -74,24 +86,90 @@ export function CreatorUploadChapterPage() {
   const [notice, setNotice] = useState('');
   const [submitted, setSubmitted] = useState(false);
   // Danh sách truyện thật của tác giả + file PDF thật để upload lên backend.
-  const [comics, setComics] = useState<ComicOption[]>(demoComics);
+  const [comics, setComics] = useState<ComicOption[]>([]);
   const [comicId, setComicId] = useState<string>('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [comicSearch, setComicSearch] = useState('');
+  const [comicPickerOpen, setComicPickerOpen] = useState(false);
+  const [comicLoadState, setComicLoadState] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
+
+  const filteredComics = useMemo(() => {
+    const keyword = normalizeText(comicSearch);
+    if (!keyword) return comics;
+    return comics.filter((comic) => normalizeText(comic.title).includes(keyword));
+  }, [comics, comicSearch]);
+
+  const selectedComic = useMemo(
+    () => comics.find((comic) => comic.id === comicId) || null,
+    [comics, comicId]
+  );
 
   useEffect(() => {
-    comicApi
-      .listMine()
-      .then((list) => {
-        if (!list.length) return;
-        const opts: ComicOption[] = list.map((c) => ({ id: c.id, title: c.title, nextChapter: 1, price: 0 }));
+    let active = true;
+
+    const loadAuthorComics = async () => {
+      try {
+        const list = await comicApi.listMine();
+        if (!active) return;
+
+        if (!list.length) {
+          setComics([]);
+          setComicId('');
+          setForm((current) => ({ ...current, comic: '', chapterNumber: '', price: '0' }));
+          setComicLoadState('empty');
+          return;
+        }
+
+        const chaptersByComic = await Promise.allSettled(
+          list.map((comic) => chapterApi.listByComic(comic.id))
+        );
+        if (!active) return;
+
+        const opts: ComicOption[] = list.map((comic, index) => {
+          const chapters =
+            chaptersByComic[index].status === 'fulfilled' ? chaptersByComic[index].value : [];
+          const sortedChapters = [...chapters].sort((a, b) => b.chapterNumber - a.chapterNumber);
+          const latestChapter = sortedChapters[0];
+          const maxChapterNumber = sortedChapters.reduce(
+            (max, chapter) => Math.max(max, chapter.chapterNumber || 0),
+            0
+          );
+
+          return {
+            id: comic.id,
+            title: comic.title,
+            nextChapter: maxChapterNumber + 1 || 1,
+            price: latestChapter?.price ?? 0,
+            cover: comic.coverImageUrl,
+            status: comic.status,
+          };
+        });
+
+        const firstComic = opts[0];
         setComics(opts);
-        setComicId(opts[0].id);
-        setForm((current) => ({ ...current, comic: opts[0].title }));
-      })
-      .catch(() => {
-        /* chưa đăng nhập author hoặc backend chưa chạy -> dùng demoComics */
-      });
+        setComicId(firstComic.id);
+        setForm((current) => ({
+          ...current,
+          comic: firstComic.title,
+          chapterNumber: String(firstComic.nextChapter),
+          price: String(firstComic.price),
+        }));
+        setComicLoadState('ready');
+      } catch {
+        if (!active) return;
+        setComics([]);
+        setComicId('');
+        setForm((current) => ({ ...current, comic: '', chapterNumber: '', price: '0' }));
+        setComicLoadState('error');
+      }
+    };
+
+    void loadAuthorComics();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const showNotice = (message: string) => {
@@ -103,13 +181,16 @@ export function CreatorUploadChapterPage() {
     setForm((current) => ({ ...current, ...patch }));
   };
 
-  const handleComicChange = (comicTitle: string) => {
-    const selectedComic = comics.find((comic) => comic.title === comicTitle);
-    if (selectedComic) setComicId(selectedComic.id);
+  const handleComicChange = (nextId: string) => {
+    const selectedComic = comics.find((comic) => comic.id === nextId);
+    if (!selectedComic) return;
+    setComicId(selectedComic.id);
+    setComicPickerOpen(false);
+    setComicSearch('');
     updateForm({
-      comic: comicTitle,
-      chapterNumber: selectedComic ? String(selectedComic.nextChapter) : form.chapterNumber,
-      price: selectedComic ? String(selectedComic.price) : form.price
+      comic: selectedComic.title,
+      chapterNumber: String(selectedComic.nextChapter),
+      price: String(selectedComic.price),
     });
   };
 
@@ -137,6 +218,11 @@ export function CreatorUploadChapterPage() {
   };
 
   const submitUpload = async () => {
+    if (!selectedComic) {
+      showNotice('Vui lòng chọn bộ truyện trước khi gửi duyệt.');
+      return;
+    }
+
     if (!form.chapterTitle.trim()) {
       showNotice('Vui lòng nhập tên chương trước khi gửi duyệt.');
       return;
@@ -157,51 +243,44 @@ export function CreatorUploadChapterPage() {
       return;
     }
 
-    const price = Number.parseInt(form.price, 10) || 0;
-
-    // Nếu có truyện thật + file thật + đã đăng nhập author -> gọi API tạo chương (multipart).
-    if (comicId && pdfFile) {
-      setSubmitting(true);
-      try {
-        await chapterApi.create({
-          chapterNumber: Number.parseInt(form.chapterNumber, 10) || 1,
-          title: form.chapterTitle.trim(),
-          price,
-          comicId,
-          isFree: price === 0,
-          file: pdfFile,
-        });
-        setSubmitted(true);
-        showNotice('Đã tạo chương mới trên backend.');
-        return;
-      } catch (err) {
-        showNotice(err instanceof ApiError ? `Tạo chương thất bại: ${err.message}` : 'Tạo chương thất bại.');
-        return;
-      } finally {
-        setSubmitting(false);
-      }
+    if (!pdfFile) {
+      showNotice('File PDF không hợp lệ. Vui lòng chọn lại.');
+      return;
     }
 
-    // Fallback demo (chưa đăng nhập author / backend chưa sẵn sàng): lưu localStorage.
-    saveUploadToStorage({
-      title: `Chương ${form.chapterNumber}: ${form.chapterTitle.trim()}`,
-      comic: form.comic,
-      status: 'Đang duyệt',
-      updated: 'Vừa xong',
-      fileName: form.pdfFileName,
-      copyright: 'Đang kiểm tra bản quyền',
-      price,
-      submittedAt: new Date().toISOString()
-    });
+    const price = Number.parseInt(form.price, 10) || 0;
 
-    setSubmitted(true);
-    showNotice('Đã lưu chương ở chế độ demo (chưa kết nối backend author).');
+    setSubmitting(true);
+    try {
+      await chapterApi.create({
+        chapterNumber: Number.parseInt(form.chapterNumber, 10) || 1,
+        title: form.chapterTitle.trim(),
+        price,
+        comicId: selectedComic.id,
+        isFree: price === 0,
+        file: pdfFile,
+      });
+      setSubmitted(true);
+      showNotice('Đã tạo chương mới trên backend.');
+    } catch (err) {
+      showNotice(err instanceof ApiError ? `Tạo chương thất bại: ${err.message}` : 'Tạo chương thất bại.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const resetForm = () => {
-    setForm(initialForm);
+    const nextComic = selectedComic || comics[0] || null;
+    setForm({
+      ...initialForm,
+      comic: nextComic?.title ?? '',
+      chapterNumber: nextComic ? String(nextComic.nextChapter) : '',
+      price: nextComic ? String(nextComic.price) : '0',
+    });
     setPdfFile(null);
     setSubmitted(false);
+    setComicSearch('');
+    setComicPickerOpen(false);
   };
 
   return (
@@ -282,12 +361,129 @@ export function CreatorUploadChapterPage() {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="space-y-2 sm:col-span-2">
-                    <span className="text-sm font-semibold">Bộ truyện</span>
-                    <select value={form.comic} onChange={(e) => handleComicChange(e.target.value)} className="w-full rounded-xl border border-border bg-input px-4 py-3">
-                      {comics.map((comic) => <option key={comic.id} value={comic.title}>{comic.title}</option>)}
-                    </select>
-                  </label>
+                  <div className="space-y-2 sm:col-span-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">Bộ truyện</span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {comicLoadState === 'loading'
+                          ? 'Đang tải truyện...'
+                          : comicLoadState === 'error'
+                            ? 'Không tải được'
+                            : `${comics.length} bộ truyện`}
+                      </span>
+                    </div>
+
+                    {selectedComic ? (
+                      <button
+                        type="button"
+                        onClick={() => setComicPickerOpen((open) => !open)}
+                        className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-3 text-left transition-all hover:border-primary/60 hover:bg-primary/10"
+                      >
+                        {selectedComic.cover ? (
+                          <img
+                            src={selectedComic.cover}
+                            alt={selectedComic.title}
+                            className="h-16 w-12 flex-shrink-0 rounded-lg bg-muted object-cover"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="flex h-16 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-muted">
+                            <BookOpen className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-base font-bold text-foreground">{selectedComic.title}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {formatComicStatus(selectedComic.status) && (
+                              <span>{formatComicStatus(selectedComic.status)}</span>
+                            )}
+                            <span>Chương kế tiếp: {selectedComic.nextChapter}</span>
+                            <span>{selectedComic.price} coin</span>
+                          </div>
+                        </div>
+                        <ChevronDown className={`h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform ${comicPickerOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                    ) : (
+                      <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                        Chưa có bộ truyện nào để upload chương. Hãy tạo truyện ở Creator Dashboard trước.
+                      </div>
+                    )}
+
+                    {comicPickerOpen && comics.length > 0 && (
+                      <div className="rounded-2xl border border-border bg-card p-3 shadow-lg shadow-primary/5">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <input
+                            type="text"
+                            value={comicSearch}
+                            onChange={(e) => setComicSearch(e.target.value)}
+                            placeholder={`Tìm trong ${comics.length} truyện...`}
+                            className="w-full rounded-xl border border-border bg-input py-2.5 pl-9 pr-10 text-sm text-foreground outline-none focus:border-primary/60"
+                            autoFocus
+                          />
+                          {comicSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setComicSearch('')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              aria-label="Xóa tìm kiếm"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        {filteredComics.length === 0 ? (
+                          <div className="mt-3 rounded-xl border border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+                            Không có truyện khớp "<span className="font-semibold text-foreground">{comicSearch}</span>".
+                          </div>
+                        ) : (
+                          <div className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
+                            {filteredComics.map((comic) => {
+                              const active = comicId === comic.id;
+                              return (
+                                <button
+                                  key={comic.id}
+                                  type="button"
+                                  onClick={() => handleComicChange(comic.id)}
+                                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                                    active
+                                      ? 'border-primary bg-primary/10 shadow-md shadow-primary/10'
+                                      : 'border-border bg-muted/20 hover:border-primary/40 hover:bg-muted/30'
+                                  }`}
+                                >
+                                  {comic.cover ? (
+                                    <img
+                                      src={comic.cover}
+                                      alt={comic.title}
+                                      className="h-14 w-11 flex-shrink-0 rounded-lg bg-muted object-cover"
+                                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                  ) : (
+                                    <div className="flex h-14 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-muted">
+                                      <FileText className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <p className={`truncate font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
+                                      {comic.title}
+                                    </p>
+                                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                                      Chương {comic.nextChapter} · {comic.price} coin
+                                      {formatComicStatus(comic.status) ? ` · ${formatComicStatus(comic.status)}` : ''}
+                                    </p>
+                                  </div>
+                                  {active && (
+                                    <CheckCircle className="h-5 w-5 flex-shrink-0 text-primary" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <label className="space-y-2">
                     <span className="text-sm font-semibold">Số chương</span>
                     <input value={form.chapterNumber} onChange={(e) => updateForm({ chapterNumber: e.target.value })} className="w-full rounded-xl border border-border bg-input px-4 py-3" placeholder="46" />
@@ -304,15 +500,28 @@ export function CreatorUploadChapterPage() {
                     <span className="text-sm font-semibold">Lịch phát hành</span>
                     <input value={form.releaseTime} onChange={(e) => updateForm({ releaseTime: e.target.value })} className="w-full rounded-xl border border-border bg-input px-4 py-3" placeholder="VD: 20:00, 15/05/2026" />
                   </label>
-                  <label className="space-y-2">
+                  <div className="space-y-2">
                     <span className="text-sm font-semibold">Rating nội dung</span>
-                    <select value={form.rating} onChange={(e) => updateForm({ rating: e.target.value })} className="w-full rounded-xl border border-border bg-input px-4 py-3">
-                      <option>Phù hợp mọi lứa tuổi</option>
-                      <option>13+</option>
-                      <option>16+</option>
-                      <option>18+</option>
-                    </select>
-                  </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Phù hợp mọi lứa tuổi', '13+', '16+', '18+'].map((opt) => {
+                        const active = form.rating === opt;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => updateForm({ rating: opt })}
+                            className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${
+                              active
+                                ? 'border-primary bg-primary/10 text-primary shadow-md shadow-primary/10'
+                                : 'border-border bg-muted/20 text-foreground hover:border-primary/40 hover:bg-muted/30'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <label className="space-y-2 sm:col-span-2">
                     <span className="text-sm font-semibold">Ghi chú cho Admin</span>
                     <textarea value={form.note} onChange={(e) => updateForm({ note: e.target.value })} className="min-h-28 w-full rounded-xl border border-border bg-input px-4 py-3" placeholder="Cảnh báo nội dung, lịch phát hành, ghi chú kiểm duyệt..." />

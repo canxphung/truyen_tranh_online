@@ -64,6 +64,19 @@ export interface UploadChapterResponse {
   url: string;
 }
 
+export interface SubscriptionPlanResponse {
+  id: string;
+  name: string;
+  price: number;
+  chapterLimit: number;
+  durationDays: number;
+  unlimitedAccess: boolean;
+}
+
+export interface MomoCreatePaymentResponse {
+  payUrl: string;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -140,11 +153,12 @@ export const authApi = {
 
 // ---- Comics -----------------------------------------------------------------
 export const comicApi = {
+  // BE SecurityConfig đang yêu cầu auth cho /comics/**. Gắn token nếu có.
   list() {
-    return request<ComicResponse[]>('/comics', { auth: false });
+    return request<ComicResponse[]>('/comics');
   },
   get(comicId: string) {
-    return request<ComicResponse>(`/comics/${comicId}`, { auth: false });
+    return request<ComicResponse>(`/comics/${comicId}`);
   },
   // Yêu cầu role AUTHOR/ADMIN
   listMine() {
@@ -171,10 +185,10 @@ export const comicApi = {
 // ---- Chapters ---------------------------------------------------------------
 export const chapterApi = {
   listByComic(comicId: string) {
-    return request<ChapterResponse[]>(`/comics/${comicId}/chapters`, { auth: false });
+    return request<ChapterResponse[]>(`/comics/${comicId}/chapters`);
   },
   get(chapterId: string) {
-    return request<ChapterResponse>(`/chapters/${chapterId}`, { auth: false });
+    return request<ChapterResponse>(`/chapters/${chapterId}`);
   },
   // multipart/form-data: AUTHOR tạo chương kèm file PDF
   create(input: {
@@ -193,6 +207,29 @@ export const chapterApi = {
     form.append('isFree', String(input.isFree));
     form.append('file', input.file);
     return request<ChapterResponse>('/author/chapters', { method: 'POST', body: form });
+  },
+};
+
+// ---- Subscription -----------------------------------------------------------
+export const subscriptionApi = {
+  // BE require auth (mặc dù chỉ là list plans).
+  listPlans() {
+    return request<SubscriptionPlanResponse[]>('/subscriptions/plans');
+  },
+};
+
+// ---- Payment (MoMo) ---------------------------------------------------------
+// FE chỉ tạo payUrl rồi redirect đến MoMo. IPN callback do BE handle.
+export const paymentApi = {
+  createChapterPayment(chapterId: string) {
+    return request<MomoCreatePaymentResponse>(`/payments/momo/chapter/${chapterId}`, {
+      method: 'POST',
+    });
+  },
+  createSubscriptionPayment(planId: string) {
+    return request<MomoCreatePaymentResponse>(`/payments/momo/subscription/${planId}`, {
+      method: 'POST',
+    });
   },
 };
 

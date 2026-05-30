@@ -350,17 +350,25 @@ export function CreatorBlogEditorPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-semibold text-muted-foreground">Chuyên mục</label>
-                    <select
-                      value={category}
-                      onChange={(event) => setCategory(event.target.value)}
-                      className="mt-2 w-full rounded-xl border border-border bg-input px-4 py-3 outline-none focus:border-primary/60"
-                    >
-                      <option>Nhật ký tác giả</option>
-                      <option>Hậu trường sáng tác</option>
-                      <option>Teaser chương mới</option>
-                      <option>Thông báo cộng đồng</option>
-                      <option>Q&A cùng độc giả</option>
-                    </select>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {['Nhật ký tác giả', 'Hậu trường sáng tác', 'Teaser chương mới', 'Thông báo cộng đồng', 'Q&A cùng độc giả'].map((opt) => {
+                        const active = category === opt;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setCategory(opt)}
+                            className={`rounded-xl border px-3 py-2.5 text-sm font-medium text-left transition-all ${
+                              active
+                                ? 'border-primary bg-primary/10 text-primary shadow-md shadow-primary/10'
+                                : 'border-border bg-muted/20 text-foreground hover:border-primary/40 hover:bg-muted/30'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-muted-foreground">Tag</label>

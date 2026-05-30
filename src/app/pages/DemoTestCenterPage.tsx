@@ -4,7 +4,9 @@ import { CheckCircle, ClipboardCheck, LogIn, PlayCircle, Shield, User, Crown, Da
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
-import { demoAccounts, mockFunctionTestMatrix } from '../data/mockData';
+// import { demoAccounts, mockFunctionTestMatrix } from '../data/mockData';
+const demoAccounts: any[] = [];
+const mockFunctionTestMatrix: any[] = [];
 import { getMockSession, quickLogin, roleLabel, type MockSession } from '../lib/mockAuth';
 
 const iconByRole = {

@@ -1,5 +1,22 @@
-import { demoAccounts, type DemoAccount, type DemoRole } from '../data/mockData';
+// import { demoAccounts, type DemoAccount, type DemoRole } from '../data/mockData';
 import { clearToken, type ApiRole } from './api';
+
+// Tạm thời stub mockdata (đã comment). Các hàm phụ thuộc demo accounts sẽ rỗng.
+export type DemoRole = 'reader' | 'author' | 'admin';
+export interface DemoAccount {
+  id: string;
+  role: DemoRole;
+  name: string;
+  email: string;
+  password: string;
+  avatar: string;
+  coins: number;
+  premium: boolean;
+  creatorStatus?: 'not_registered' | 'pending' | 'approved';
+  bio: string;
+  permissions: string[];
+}
+const demoAccounts: DemoAccount[] = [];
 
 const STORAGE_KEY = 'inkverse_mock_session';
 export const AUTH_CHANGED_EVENT = 'inkverse_mock_auth_changed';

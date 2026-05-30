@@ -283,15 +283,30 @@ export function SystemSettingsPage() {
 
             <div>
               <label className="block text-sm font-semibold mb-2">Mức độ kiểm duyệt</label>
-              <select
-                value={settings.contentModerationLevel}
-                onChange={(e) => setSettings({ ...settings, contentModerationLevel: e.target.value })}
-                className="w-full px-4 py-3 bg-input rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="low">Thấp - Tự động duyệt hầu hết</option>
-                <option value="medium">Trung bình - Kiểm tra một số</option>
-                <option value="high">Cao - Kiểm tra tất cả</option>
-              </select>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  { id: 'low', label: 'Thấp', desc: 'Tự động duyệt hầu hết' },
+                  { id: 'medium', label: 'Trung bình', desc: 'Kiểm tra một số' },
+                  { id: 'high', label: 'Cao', desc: 'Kiểm tra tất cả' },
+                ].map((opt) => {
+                  const active = settings.contentModerationLevel === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setSettings({ ...settings, contentModerationLevel: opt.id })}
+                      className={`rounded-xl border p-3 text-left transition-all ${
+                        active
+                          ? 'border-primary bg-primary/10 text-primary shadow-md shadow-primary/10'
+                          : 'border-border bg-muted/20 text-foreground hover:border-primary/40 hover:bg-muted/30'
+                      }`}
+                    >
+                      <p className="font-semibold">{opt.label}</p>
+                      <p className={`text-xs mt-1 ${active ? 'text-primary/80' : 'text-muted-foreground'}`}>{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer p-4 bg-muted/30 rounded-xl">

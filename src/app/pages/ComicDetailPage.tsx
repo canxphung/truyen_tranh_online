@@ -6,7 +6,16 @@ import { ChapterRow } from '../components/comic/ChapterRow';
 import { ComicCard } from '../components/comic/ComicCard';
 import { EnhancedComments } from '../components/comic/EnhancedComments';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
-import { mockComics, mockChapters, mockPremiumSubscription } from '../data/mockData';
+// import { mockComics, mockChapters, mockPremiumSubscription } from '../data/mockData';
+const mockComics: any[] = [];
+const mockChapters: any[] = [];
+const mockPremiumSubscription: any = {
+  planName: '',
+  remainingReads: 0,
+  usedThisMonth: 0,
+  monthlyReadLimit: 1,
+  resetAt: '',
+};
 import { getPublicBlogPosts } from '../lib/blogStore';
 import { getMockSession } from '../lib/mockAuth';
 import { useEffect, useMemo, useState } from 'react';
@@ -57,7 +66,7 @@ export function ComicDetailPage() {
     };
   }, [id]);
 
-  const comic = comicData ?? mockComics.find((c) => c.id === id) ?? mockComics[0];
+  const comic: any = comicData ?? mockComics.find((c) => c.id === id) ?? mockComics[0] ?? { id: '', title: '', author: '', cover: '', genres: [], rating: 0, views: 0, followers: 0, description: '', chapters: 0 };
   const similarComics = mockComics.filter((c) => c.id !== id).slice(0, 4);
   const authorBlogPosts = useMemo(() => getPublicBlogPosts()
     .filter((post) => post.authorComicId === comic.id || post.authorName === comic.author)

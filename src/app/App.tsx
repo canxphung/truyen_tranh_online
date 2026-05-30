@@ -19,6 +19,7 @@ import { SystemSettingsPage } from './pages/SystemSettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { DemoTestCenterPage } from './pages/DemoTestCenterPage';
+import { PaymentSuccessPage } from './pages/PaymentSuccessPage';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 
 export default function App() {
@@ -49,6 +50,7 @@ export default function App() {
                   <Route path="/admin/settings" element={<SystemSettingsPage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/payment-success" element={<PaymentSuccessPage />} />
                   <Route path="/demo-test" element={<DemoTestCenterPage />} />
                   <Route path="/explore" element={<ExplorePage />} />
                   <Route path="/new" element={<ExplorePage />} />

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { Compass, Filter, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Compass, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/Badge';
 import { SearchBar } from '../components/ui/SearchBar';
 import { ComicCard } from '../components/comic/ComicCard';
-import { categories, mockComics } from '../data/mockData';
+import { comicApi, mapComic, ApiError, type UiComic } from '../lib/api';
 
 const normalizeText = (value: string) =>
   value
@@ -15,12 +15,11 @@ const normalizeText = (value: string) =>
     .replace(/đ/g, 'd')
     .trim();
 
-const updateExploreUrl = (category: string, keyword: string, sortBy: string, statusFilter: string) => {
+const updateExploreUrl = (keyword: string, sortBy: string, statusFilter: string) => {
   const params = new URLSearchParams();
   const trimmedKeyword = keyword.trim();
 
   if (trimmedKeyword) params.set('q', trimmedKeyword);
-  if (category !== 'Tất cả') params.set('category', category);
   if (sortBy !== 'relevant') params.set('sort', sortBy);
   if (statusFilter !== 'all') params.set('status', statusFilter);
 
@@ -31,99 +30,92 @@ const updateExploreUrl = (category: string, keyword: string, sortBy: string, sta
 
 const sortOptions = [
   { id: 'relevant', label: 'Phù hợp nhất' },
-  { id: 'views', label: 'Lượt xem cao' },
-  { id: 'rating', label: 'Đánh giá cao' },
-  { id: 'chapters', label: 'Nhiều chương' },
-  { id: 'new', label: 'Mới cập nhật' }
+  { id: 'new', label: 'Mới cập nhật' },
 ];
 
+// Map sang ComicStatus của BE.
 const statusOptions = [
   { id: 'all', label: 'Tất cả trạng thái' },
-  { id: 'free', label: 'Miễn phí' },
-  { id: 'premium', label: 'Premium' },
-  { id: 'hot', label: 'Hot' },
-  { id: 'new', label: 'Mới' }
+  { id: 'ONGOING', label: 'Đang tiến hành' },
+  { id: 'COMPLETED', label: 'Hoàn thành' },
+  { id: 'HIATUS', label: 'Tạm ngưng' },
 ];
 
 export function ExplorePage() {
   const params = useParams();
   const [searchParams] = useSearchParams();
+  // Route /category/:name vẫn được giữ — dùng làm keyword search vì BE chưa có thể loại.
   const categoryFromRoute = params.categoryName ? decodeURIComponent(params.categoryName) : '';
-  const initialCategory = categoryFromRoute || searchParams.get('category') || 'Tất cả';
-  const initialSearch = searchParams.get('q') || '';
+  const initialSearch = categoryFromRoute || searchParams.get('q') || '';
   const initialSort = searchParams.get('sort') || 'relevant';
   const initialStatus = searchParams.get('status') || 'all';
 
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [sortBy, setSortBy] = useState(initialSort);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
 
+  const [comics, setComics] = useState<UiComic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+
   useEffect(() => {
-    setSelectedCategory(initialCategory);
     setSearchTerm(initialSearch);
     setSortBy(initialSort);
     setStatusFilter(initialStatus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, params.categoryName]);
 
-  const categoryCounts = useMemo(() => {
-    return categories.reduce<Record<string, number>>((acc, category) => {
-      acc[category] = category === 'Tất cả'
-        ? mockComics.length
-        : mockComics.filter((comic) => comic.genres.some((genre) => normalizeText(genre) === normalizeText(category))).length;
-      return acc;
-    }, {});
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    comicApi
+      .list()
+      .then((data) => {
+        if (active) setComics(data.map(mapComic));
+      })
+      .catch((err) => {
+        if (active) setErrorMsg(err instanceof ApiError ? err.message : 'Không tải được danh sách truyện.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const filteredComics = useMemo(() => {
-    const normalizedCategory = normalizeText(selectedCategory);
     const keyword = normalizeText(searchTerm);
 
-    const result = mockComics.filter((comic) => {
-      const matchCategory = selectedCategory === 'Tất cả' || comic.genres.some((genre) => normalizeText(genre) === normalizedCategory);
-      const searchableText = normalizeText([
-        comic.title,
-        comic.author,
-        comic.description,
-        ...comic.genres
-      ].join(' '));
+    const result = comics.filter((comic) => {
+      const searchableText = normalizeText([comic.title, comic.author, comic.description].join(' '));
       const matchSearch = !keyword || searchableText.includes(keyword);
-      const matchStatus = statusFilter === 'all' || comic.status === statusFilter;
-      return matchCategory && matchSearch && matchStatus;
+      const matchStatus = statusFilter === 'all' || comic.apiStatus === statusFilter;
+      return matchSearch && matchStatus;
     });
 
     return [...result].sort((a, b) => {
-      if (sortBy === 'views') return b.views - a.views;
-      if (sortBy === 'rating') return b.rating - a.rating;
-      if (sortBy === 'chapters') return b.chapters - a.chapters;
       if (sortBy === 'new') return b.id.localeCompare(a.id);
       return 0;
     });
-  }, [selectedCategory, searchTerm, sortBy, statusFilter]);
-
-  const applyCategory = (category: string) => {
-    setSelectedCategory(category);
-    updateExploreUrl(category, searchTerm, sortBy, statusFilter);
-  };
+  }, [comics, searchTerm, sortBy, statusFilter]);
 
   const applySearch = (value: string) => {
     setSearchTerm(value);
-    updateExploreUrl(selectedCategory, value, sortBy, statusFilter);
+    updateExploreUrl(value, sortBy, statusFilter);
   };
 
   const applySort = (value: string) => {
     setSortBy(value);
-    updateExploreUrl(selectedCategory, searchTerm, value, statusFilter);
+    updateExploreUrl(searchTerm, value, statusFilter);
   };
 
   const applyStatus = (value: string) => {
     setStatusFilter(value);
-    updateExploreUrl(selectedCategory, searchTerm, sortBy, value);
+    updateExploreUrl(searchTerm, sortBy, value);
   };
 
   const clearFilters = () => {
-    setSelectedCategory('Tất cả');
     setSearchTerm('');
     setSortBy('relevant');
     setStatusFilter('all');
@@ -169,32 +161,6 @@ export function ExplorePage() {
 
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <Filter className="w-5 h-5 text-primary" />
-                <h3 className="font-bold">Danh mục</h3>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => applyCategory(category)}
-                    className={`px-3 py-2 rounded-xl border text-sm transition-all ${
-                      selectedCategory === category
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-muted/20 border-border hover:border-primary/50'
-                    }`}
-                  >
-                    {category} <span className="opacity-70">({categoryCounts[category] || 0})</span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Click danh mục chỉ lọc dữ liệu trên client, không tải lại trang.
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 mb-3">
                 <SlidersHorizontal className="w-5 h-5 text-primary" />
                 <h3 className="font-bold">Trạng thái</h3>
               </div>
@@ -222,10 +188,9 @@ export function ExplorePage() {
               <div>
                 <p className="text-sm text-muted-foreground">Kết quả khám phá</p>
                 <h2 className="text-2xl font-bold">
-                  {filteredComics.length} truyện phù hợp
-                  {selectedCategory !== 'Tất cả' ? ` · ${selectedCategory}` : ''}
+                  {loading ? 'Đang tải...' : `${filteredComics.length} truyện phù hợp`}
                 </h2>
-                {(searchTerm || selectedCategory !== 'Tất cả' || statusFilter !== 'all' || sortBy !== 'relevant') && (
+                {(searchTerm || statusFilter !== 'all' || sortBy !== 'relevant') && (
                   <button type="button" onClick={clearFilters} className="text-sm text-primary hover:underline mt-2 inline-flex items-center gap-1">
                     <X className="w-4 h-4" /> Xóa toàn bộ bộ lọc
                   </button>
@@ -245,13 +210,15 @@ export function ExplorePage() {
               </div>
             </div>
 
+            {errorMsg && <p className="text-error">{errorMsg}</p>}
+
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               {filteredComics.map((comic) => (
                 <ComicCard key={comic.id} {...comic} />
               ))}
             </div>
 
-            {filteredComics.length === 0 && (
+            {!loading && !errorMsg && filteredComics.length === 0 && (
               <div className="bg-card rounded-2xl border border-border p-8 text-center">
                 <h3 className="font-bold text-lg mb-2">Không tìm thấy truyện phù hợp</h3>
                 <p className="text-muted-foreground mb-4">Hãy thử bỏ bớt bộ lọc hoặc dùng từ khóa rộng hơn.</p>

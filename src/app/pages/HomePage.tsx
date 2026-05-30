@@ -5,7 +5,10 @@ import { ComicCard } from '../components/comic/ComicCard';
 import { Badge } from '../components/ui/Badge';
 import { SearchBar } from '../components/ui/SearchBar';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
-import { mockComics, mockCreators, categories } from '../data/mockData';
+// import { mockComics, mockCreators, categories } from '../data/mockData';
+const mockComics: any[] = [];
+const mockCreators: any[] = [];
+const categories: string[] = [];
 import { useEffect, useMemo, useState } from 'react';
 import { comicApi, mapComic, type UiComic } from '../lib/api';
 
@@ -41,6 +44,7 @@ export function HomePage() {
   // Danh sách truyện: tải từ backend, fallback về mock nếu lỗi/không có dữ liệu.
   const [comics, setComics] = useState<UiComic[]>(mockComics as unknown as UiComic[]);
   const featuredComic = comics[2] ?? comics[0];
+  // featuredComic có thể undefined khi backend chưa load — JSX phía dưới có guard.
 
   useEffect(() => {
     setSelectedCategory(categoryFromUrl);
@@ -139,6 +143,7 @@ export function HomePage() {
 
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-secondary/30 blur-3xl rounded-full" />
+              {featuredComic && (
               <Link to={`/comic/${featuredComic.id}`}>
                 <div className="relative bg-card border border-border rounded-3xl p-3 overflow-hidden hover:shadow-2xl hover:shadow-primary/20 transition-all hover:-translate-y-2 group">
                   <div className="aspect-[3/4] overflow-hidden rounded-2xl">
@@ -163,6 +168,7 @@ export function HomePage() {
                   </div>
                 </div>
               </Link>
+              )}
             </div>
           </div>
         </div>

@@ -3,7 +3,10 @@ import { Coins, CreditCard, Smartphone, Building, ChevronRight, TrendingUp, Tren
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { coinPackages, mockCoinPurchaseAuditTrail, mockTransactions } from '../data/mockData';
+// import { coinPackages, mockCoinPurchaseAuditTrail, mockTransactions } from '../data/mockData';
+const coinPackages: any[] = [];
+const mockCoinPurchaseAuditTrail: any[] = [];
+const mockTransactions: any[] = [];
 import { getMockSession } from '../lib/mockAuth';
 
 export function WalletPage() {

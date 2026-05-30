@@ -1,67 +1,111 @@
-import { Check, Crown, Zap, Star, Sparkles, TrendingUp, CalendarClock, Eye, RefreshCcw, ShieldCheck } from 'lucide-react';
+import { Check, Crown, Zap, Star, Sparkles, TrendingUp, CalendarClock, Eye, RefreshCcw, ShieldCheck, LogIn } from 'lucide-react';
+import { Link } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { useState } from 'react';
-import { mockPremiumSubscription } from '../data/mockData';
+import { useEffect, useState } from 'react';
+import { subscriptionApi, paymentApi, ApiError, type SubscriptionPlanResponse } from '../lib/api';
+import { getMockSession } from '../lib/mockAuth';
+// import { mockPremiumSubscription } from '../data/mockData';
+const mockPremiumSubscription: any = {
+  planName: '',
+  remainingReads: 0,
+  usedThisMonth: 0,
+  monthlyReadLimit: 1,
+  resetAt: '',
+  usageHistory: [] as any[],
+};
+
+// Map name BE -> icon + danh sách tính năng hiển thị. Nếu BE thêm plan mới sẽ rơi vào defaultMeta.
+const planMetaByName: Record<string, { icon: typeof Star; color: string; popular?: boolean; features: string[] }> = {
+  Basic: {
+    icon: Star,
+    color: 'secondary',
+    features: [
+      'Đọc 30 chương Premium/tháng',
+      'Hiển thị số lượt đọc còn lại trong tài khoản',
+      'Giảm 10% khi mua chương bằng Coin',
+      'Không quảng cáo',
+      'Bookmark không giới hạn',
+      'Ưu tiên hỗ trợ',
+    ],
+  },
+  Pro: {
+    icon: Crown,
+    color: 'primary',
+    popular: true,
+    features: [
+      'Đọc 120 chương Premium/tháng',
+      'Cảnh báo khi sắp hết lượt đọc',
+      'Giảm 20% khi mua chương bằng Coin',
+      'Không quảng cáo',
+      'Tải chương offline',
+      'Đọc trước 3 ngày cho chương mới',
+      'Badge Premium độc quyền',
+    ],
+  },
+  Ultimate: {
+    icon: Zap,
+    color: 'warning',
+    features: [
+      'Đọc không giới hạn',
+      'Tặng 500 Coin mỗi tháng',
+      'Đọc trước 7 ngày cho chương mới',
+      'Tham gia nhóm Discord VIP',
+      'Gặp gỡ tác giả (sự kiện)',
+      'Tên xuất hiện trong Credits',
+      'Hỗ trợ VIP 24/7',
+    ],
+  },
+};
+const defaultMeta = { icon: Star, color: 'secondary', features: [] as string[] };
 
 export function PremiumPage() {
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlanResponse[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [plansError, setPlansError] = useState('');
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState('');
+  // BE /subscriptions/plans yêu cầu auth. Bỏ qua fetch nếu chưa login, hiện CTA đăng nhập.
+  const [isAuthed] = useState(() => getMockSession() !== null);
 
-  const plans = [
-    {
-      id: 'basic',
-      name: 'Basic',
-      icon: Star,
-      price: { monthly: 49000, yearly: 490000 },
-      color: 'secondary',
-      monthlyReadLimit: 30,
-      features: [
-        'Đọc 30 chương Premium/tháng',
-        'Hiển thị số lượt đọc còn lại trong tài khoản',
-        'Giảm 10% khi mua chương bằng Coin',
-        'Không quảng cáo',
-        'Bookmark không giới hạn',
-        'Ưu tiên hỗ trợ'
-      ]
-    },
-    {
-      id: 'pro',
-      name: 'Pro',
-      icon: Crown,
-      price: { monthly: 99000, yearly: 990000 },
-      color: 'primary',
-      popular: true,
-      monthlyReadLimit: 120,
-      features: [
-        'Đọc 120 chương Premium/tháng',
-        'Cảnh báo khi sắp hết lượt đọc',
-        'Giảm 20% khi mua chương bằng Coin',
-        'Không quảng cáo',
-        'Tải chương offline',
-        'Đọc trước 3 ngày cho chương mới',
-        'Badge Premium độc quyền'
-      ]
-    },
-    {
-      id: 'ultimate',
-      name: 'Ultimate',
-      icon: Zap,
-      price: { monthly: 199000, yearly: 1990000 },
-      color: 'warning',
-      monthlyReadLimit: 300,
-      features: [
-        'Đọc 300 chương Premium/tháng',
-        'Tặng 500 Coin mỗi tháng',
-        'Đọc trước 7 ngày cho chương mới',
-        'Tham gia nhóm Discord VIP',
-        'Gặp gỡ tác giả (sự kiện)',
-        'Tên xuất hiện trong Credits',
-        'Hỗ trợ VIP 24/7'
-      ]
+  useEffect(() => {
+    if (!isAuthed) {
+      setLoadingPlans(false);
+      return;
     }
-  ];
+    let active = true;
+    setLoadingPlans(true);
+    subscriptionApi
+      .listPlans()
+      .then((data) => {
+        if (active) setPlans(data);
+      })
+      .catch((err) => {
+        if (active) setPlansError(err instanceof ApiError ? err.message : 'Không tải được danh sách gói.');
+      })
+      .finally(() => {
+        if (active) setLoadingPlans(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAuthed]);
+
+  const handleCheckout = async () => {
+    if (!selectedPlanId) return;
+    setPayError('');
+    setPaying(true);
+    try {
+      const { payUrl } = await paymentApi.createSubscriptionPayment(selectedPlanId);
+      window.location.href = payUrl;
+    } catch (err) {
+      setPayError(err instanceof ApiError ? err.message : 'Tạo thanh toán thất bại.');
+    } finally {
+      setPaying(false);
+    }
+  };
 
   const benefits = [
     { icon: Sparkles, title: 'Nội dung độc quyền', description: 'Truy cập hàng ngàn truyện Premium chỉ dành cho thành viên' },
@@ -71,7 +115,7 @@ export function PremiumPage() {
   ];
 
   const currentUsagePercent = Math.round((mockPremiumSubscription.usedThisMonth / mockPremiumSubscription.monthlyReadLimit) * 100);
-  const selectedPlanData = plans.find((plan) => plan.id === selectedPlan);
+  const selectedPlanData = plans.find((plan) => plan.id === selectedPlanId);
 
   return (
     <div className="min-h-screen pb-16">
@@ -160,100 +204,97 @@ export function PremiumPage() {
           </div>
         </Card>
 
-        {/* Billing Cycle Toggle */}
-        <div className="flex justify-center">
-          <div className="inline-flex items-center gap-4 p-2 bg-card rounded-2xl border border-border">
-            <button
-              onClick={() => setBillingCycle('monthly')}
-              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-                billingCycle === 'monthly'
-                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Hàng tháng
-            </button>
-            <button
-              onClick={() => setBillingCycle('yearly')}
-              className={`px-6 py-3 rounded-xl font-semibold transition-all relative ${
-                billingCycle === 'yearly'
-                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Hàng năm
-              <Badge variant="success" className="absolute -top-2 -right-2 text-xs">-20%</Badge>
-            </button>
-          </div>
-        </div>
-
         {/* Pricing Plans */}
-        <div className="grid md:grid-cols-3 gap-8">
-          {plans.map((plan) => {
-            const Icon = plan.icon;
-            const price = billingCycle === 'monthly' ? plan.price.monthly : plan.price.yearly;
-            const pricePerMonth = billingCycle === 'yearly' ? price / 12 : price;
-
-            return (
-              <Card
-                key={plan.id}
-                className={`relative ${plan.popular ? 'border-primary/50 shadow-2xl shadow-primary/20 scale-105' : ''}`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <Badge variant="hot">PHỔ BIẾN NHẤT</Badge>
-                  </div>
-                )}
-
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <div className={`inline-flex items-center justify-center w-16 h-16 bg-${plan.color}/10 rounded-xl mb-4`}>
-                      <Icon className={`w-8 h-8 text-${plan.color}`} />
+        {!isAuthed && (
+          <Card className="max-w-xl mx-auto text-center border-primary/30 bg-primary/5">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/15 mb-4">
+              <LogIn className="w-7 h-7 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Đăng nhập để xem gói Premium</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Danh sách gói và thanh toán MoMo chỉ hiển thị khi bạn đã đăng nhập. Tạo tài khoản miễn phí trong vài giây.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link to="/login">
+                <Button size="lg" className="w-full sm:w-auto">Đăng nhập</Button>
+              </Link>
+              <Link to="/login">
+                <Button variant="secondary" size="lg" className="w-full sm:w-auto">Đăng ký mới</Button>
+              </Link>
+            </div>
+          </Card>
+        )}
+        {isAuthed && loadingPlans && (
+          <p className="text-center text-muted-foreground">Đang tải danh sách gói từ máy chủ...</p>
+        )}
+        {isAuthed && plansError && (
+          <p className="text-center text-error">{plansError}</p>
+        )}
+        {isAuthed && !loadingPlans && !plansError && plans.length === 0 && (
+          <p className="text-center text-muted-foreground">Chưa có gói subscription nào.</p>
+        )}
+        {isAuthed && !loadingPlans && plans.length > 0 && (
+          <div className="grid md:grid-cols-3 gap-8">
+            {plans.map((plan) => {
+              const meta = planMetaByName[plan.name] ?? defaultMeta;
+              const Icon = meta.icon;
+              const quotaLabel = plan.unlimitedAccess ? 'Không giới hạn' : `${plan.chapterLimit} lượt`;
+              return (
+                <Card
+                  key={plan.id}
+                  className={`relative ${meta.popular ? 'border-primary/50 shadow-2xl shadow-primary/20 scale-105' : ''}`}
+                >
+                  {meta.popular && (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                      <Badge variant="hot">PHỔ BIẾN NHẤT</Badge>
                     </div>
-                    <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-                    <div className="space-y-1">
-                      <p className="text-4xl font-bold text-primary">
-                        {pricePerMonth.toLocaleString()}đ
-                      </p>
-                      <p className="text-sm text-muted-foreground">/tháng</p>
-                      {billingCycle === 'yearly' && (
-                        <p className="text-xs text-success">
-                          Tiết kiệm {((plan.price.monthly * 12 - plan.price.yearly) / 1000).toFixed(0)}K đ/năm
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="rounded-xl bg-muted/30 border border-border p-4 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold">Quota đọc Premium</p>
-                      <p className="text-xs text-muted-foreground">Reset mỗi chu kỳ thanh toán</p>
-                    </div>
-                    <Badge variant="premium">{plan.monthlyReadLimit} lượt/tháng</Badge>
-                  </div>
-
-                  <div className="space-y-3">
-                    {plan.features.map((feature, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <Check className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
-                        <span className="text-sm text-foreground">{feature}</span>
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <div className={`inline-flex items-center justify-center w-16 h-16 bg-${meta.color}/10 rounded-xl mb-4`}>
+                        <Icon className={`w-8 h-8 text-${meta.color}`} />
                       </div>
-                    ))}
-                  </div>
+                      <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+                      <div className="space-y-1">
+                        <p className="text-4xl font-bold text-primary">
+                          {plan.price.toLocaleString()}đ
+                        </p>
+                        <p className="text-sm text-muted-foreground">/{plan.durationDays} ngày</p>
+                      </div>
+                    </div>
 
-                  <Button
-                    variant={plan.popular ? 'primary' : 'secondary'}
-                    className="w-full"
-                    size="lg"
-                    onClick={() => setSelectedPlan(plan.id)}
-                  >
-                    {plan.popular ? 'Chọn gói này' : 'Bắt đầu ngay'}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                    <div className="rounded-xl bg-muted/30 border border-border p-4 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">Quota đọc Premium</p>
+                        <p className="text-xs text-muted-foreground">Reset khi gia hạn chu kỳ mới</p>
+                      </div>
+                      <Badge variant="premium">{quotaLabel}</Badge>
+                    </div>
+
+                    <div className="space-y-3">
+                      {meta.features.map((feature, index) => (
+                        <div key={index} className="flex items-start gap-3">
+                          <Check className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+                          <span className="text-sm text-foreground">{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button
+                      variant={meta.popular ? 'primary' : 'secondary'}
+                      className="w-full"
+                      size="lg"
+                      onClick={() => setSelectedPlanId(plan.id)}
+                    >
+                      {meta.popular ? 'Chọn gói này' : 'Bắt đầu ngay'}
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         {/* Benefits */}
         <section className="pt-12">
@@ -294,8 +335,11 @@ export function PremiumPage() {
       </div>
 
       {/* Payment Modal */}
-      {selectedPlan && selectedPlanData && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedPlan(null)}>
+      {selectedPlanId && selectedPlanData && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => (paying ? null : setSelectedPlanId(null))}
+        >
           <Card className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-2xl font-bold mb-6">Xác nhận đăng ký Premium</h3>
             <div className="bg-muted/30 rounded-xl p-4 mb-6 space-y-3">
@@ -305,31 +349,34 @@ export function PremiumPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Quota đọc:</span>
-                <span className="font-semibold text-primary">{selectedPlanData.monthlyReadLimit} lượt/tháng</span>
+                <span className="font-semibold text-primary">
+                  {selectedPlanData.unlimitedAccess ? 'Không giới hạn' : `${selectedPlanData.chapterLimit} lượt`}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Chu kỳ:</span>
-                <span className="font-semibold">{billingCycle === 'monthly' ? 'Hàng tháng' : 'Hàng năm'}</span>
+                <span className="text-muted-foreground">Thời hạn:</span>
+                <span className="font-semibold">{selectedPlanData.durationDays} ngày</span>
               </div>
               <div className="flex justify-between text-lg pt-2 border-t border-border">
                 <span className="text-muted-foreground">Tổng:</span>
                 <span className="font-bold text-primary">
-                  {selectedPlanData.price[billingCycle].toLocaleString()}đ
+                  {selectedPlanData.price.toLocaleString()}đ
                 </span>
               </div>
             </div>
             <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 mb-6 text-sm text-muted-foreground">
               <div className="flex items-start gap-2">
                 <RefreshCcw className="w-4 h-4 text-warning mt-0.5" />
-                <p>Sau khi thanh toán mock, hệ thống sẽ ghi nhận gói, số lượt đọc tối đa, số lượt đã dùng và ngày reset quota trong hồ sơ Reader.</p>
+                <p>Bạn sẽ được chuyển sang MoMo để thanh toán. Sau khi thanh toán thành công, gói sẽ tự động được kích hoạt.</p>
               </div>
             </div>
+            {payError && <p className="text-sm text-error mb-4">{payError}</p>}
             <div className="flex gap-3">
-              <Button variant="ghost" className="flex-1" onClick={() => setSelectedPlan(null)}>
+              <Button variant="ghost" className="flex-1" onClick={() => setSelectedPlanId(null)} disabled={paying}>
                 Hủy
               </Button>
-              <Button className="flex-1" onClick={() => setSelectedPlan(null)}>
-                Thanh toán mock
+              <Button className="flex-1" onClick={handleCheckout} disabled={paying}>
+                {paying ? 'Đang tạo đơn...' : 'Thanh toán MoMo'}
               </Button>
             </div>
           </Card>
