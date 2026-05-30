@@ -210,13 +210,13 @@ export function AdminDashboard() {
                   {report.status === 'pending' && (
                     <>
                       <Button variant="secondary" size="sm">Yêu cầu bổ sung</Button>
-                      <Button variant="danger" size="sm">Khóa nội dung</Button>
+                      <Button variant="destructive" size="sm">Khóa nội dung</Button>
                       <Button size="sm">Kiểm tra</Button>
                     </>
                   )}
                   {report.status === 'investigating' && (
                     <>
-                      <Button variant="danger" size="sm">Vi phạm - Xóa</Button>
+                      <Button variant="destructive" size="sm">Vi phạm - Xóa</Button>
                       <Button size="sm">Hợp lệ - Giữ lại</Button>
                     </>
                   )}

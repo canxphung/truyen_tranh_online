@@ -331,13 +331,13 @@ export function SystemSettingsPage() {
             <h2 className="text-xl font-bold text-error">Vùng nguy hiểm</h2>
           </div>
           <div className="space-y-3">
-            <Button variant="danger" className="w-full sm:w-auto">
+            <Button variant="destructive" className="w-full sm:w-auto">
               Xóa cache hệ thống
             </Button>
-            <Button variant="danger" className="w-full sm:w-auto ml-0 sm:ml-3">
+            <Button variant="destructive" className="w-full sm:w-auto ml-0 sm:ml-3">
               Khởi động lại server
             </Button>
-            <Button variant="danger" className="w-full sm:w-auto ml-0 sm:ml-3">
+            <Button variant="destructive" className="w-full sm:w-auto ml-0 sm:ml-3">
               Xuất database backup
             </Button>
           </div>
