@@ -7,13 +7,32 @@ import { useEffect, useState } from 'react';
 import { subscriptionApi, paymentApi, ApiError, type SubscriptionPlanResponse } from '../lib/api';
 import { getMockSession } from '../lib/mockAuth';
 // import { mockPremiumSubscription } from '../data/mockData';
-const mockPremiumSubscription: any = {
+
+type PremiumUsageHistoryItem = {
+  id: string;
+  comicTitle: string;
+  chapterNumber: number;
+  date: string;
+  action: string;
+  remainingAfter: number;
+};
+
+type PremiumSubscriptionSnapshot = {
+  planName: string;
+  remainingReads: number;
+  usedThisMonth: number;
+  monthlyReadLimit: number;
+  resetAt: string;
+  usageHistory: PremiumUsageHistoryItem[];
+};
+
+const mockPremiumSubscription: PremiumSubscriptionSnapshot = {
   planName: '',
   remainingReads: 0,
   usedThisMonth: 0,
   monthlyReadLimit: 1,
   resetAt: '',
-  usageHistory: [] as any[],
+  usageHistory: [],
 };
 
 // Map name BE -> icon + danh sách tính năng hiển thị. Nếu BE thêm plan mới sẽ rơi vào defaultMeta.
@@ -239,6 +258,7 @@ export function PremiumPage() {
               const meta = planMetaByName[plan.name] ?? defaultMeta;
               const Icon = meta.icon;
               const quotaLabel = plan.unlimitedAccess ? 'Không giới hạn' : `${plan.chapterLimit} lượt`;
+              const isSelected = selectedPlanId === plan.id;
               return (
                 <Card
                   key={plan.id}
@@ -282,12 +302,17 @@ export function PremiumPage() {
                     </div>
 
                     <Button
-                      variant={meta.popular ? 'primary' : 'secondary'}
-                      className="w-full"
+                      variant={meta.popular || isSelected ? 'default' : 'secondary'}
+                      className={`w-full font-bold ${
+                        meta.popular
+                          ? 'bg-gradient-to-r from-primary via-secondary to-warning text-primary-foreground shadow-xl shadow-primary/25 ring-2 ring-warning/40 hover:brightness-110'
+                          : ''
+                      } ${isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
                       size="lg"
                       onClick={() => setSelectedPlanId(plan.id)}
                     >
-                      {meta.popular ? 'Chọn gói này' : 'Bắt đầu ngay'}
+                      {isSelected && <Check className="w-4 h-4" />}
+                      {isSelected ? 'Đã chọn gói này' : meta.popular ? 'Chọn gói này' : 'Bắt đầu ngay'}
                     </Button>
                   </div>
                 </Card>
