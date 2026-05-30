@@ -13,7 +13,7 @@ import {
   type MockSession,
   type DemoRole,
 } from '../lib/mockAuth';
-import { authApi, setToken, ApiError } from '../lib/api';
+import { authApi, setAuthTokens, ApiError } from '../lib/api';
 
 const roleOptions: { id: DemoRole; icon: typeof User }[] = [
   { id: 'reader', icon: User },
@@ -55,8 +55,8 @@ export function LoginPage() {
     setInfo('');
     setLoading(true);
     try {
-      const { accessToken } = await authApi.login(email.trim(), password);
-      setToken(accessToken);
+      const auth = await authApi.login(email.trim(), password);
+      setAuthTokens(auth);
       const session = setRealSession({ email: email.trim(), role: selectedRole });
       navigate(roleHome(session.role));
     } catch (err) {
@@ -76,13 +76,13 @@ export function LoginPage() {
     setLoading(true);
     try {
       const registerRole: DemoRole = selectedRole === 'admin' ? 'reader' : selectedRole;
-      const { accessToken } = await authApi.register({
+      const auth = await authApi.register({
         email: email.trim(),
         username: username.trim(),
         password,
         role: demoRoleToApiRole(registerRole),
       });
-      setToken(accessToken);
+      setAuthTokens(auth);
       const session = setRealSession({ email: email.trim(), role: registerRole, name: username.trim() });
       navigate(roleHome(session.role));
     } catch (err) {

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { comicApi, chapterApi, ApiError } from '../lib/api';
 import {
-  AlertCircle,
   ArrowLeft,
   BookOpen,
   CheckCircle,
@@ -303,18 +302,6 @@ export function CreatorUploadChapterPage() {
             <Badge variant="default">Admin review</Badge>
           </div>
         </div>
-
-        <Card className="border-warning/30 bg-warning/10">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning" />
-            <div>
-              <p className="font-semibold text-foreground">Luồng upload đã chuyển sang page riêng</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Form này nhiều thông tin nên không còn nằm trong modal. Tác giả có đủ không gian để nhập metadata, upload PDF và xác nhận bản quyền.
-              </p>
-            </div>
-          </div>
-        </Card>
 
         {submitted ? (
           <Card className="border-success/30 bg-success/10 text-center">

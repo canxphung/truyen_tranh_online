@@ -5,6 +5,8 @@ export const API_BASE_URL =
   (import.meta as any).env?.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:8080';
 
 const TOKEN_KEY = 'comicflow_token';
+const REFRESH_TOKEN_KEY = 'comicflow_refresh_token';
+const AUTH_CHANGED_EVENT = 'inkverse_mock_auth_changed';
 
 // ---- Token storage ----------------------------------------------------------
 export function getToken(): string | null {
@@ -12,12 +14,30 @@ export function getToken(): string | null {
   return window.localStorage.getItem(TOKEN_KEY);
 }
 
+export function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
 export function setToken(token: string) {
   window.localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function setRefreshToken(token: string) {
+  window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
+export function setAuthTokens(tokens: AuthResponse) {
+  setToken(tokens.accessToken);
+  if (tokens.refreshToken) {
+    setRefreshToken(tokens.refreshToken);
+  }
+}
+
 export function clearToken() {
   window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
 // ---- Kiểu dữ liệu khớp backend ----------------------------------------------
@@ -33,6 +53,7 @@ export type ApiRole = 'READER' | 'AUTHOR' | 'ADMIN';
 
 export interface AuthResponse {
   accessToken: string;
+  refreshToken?: string;
 }
 
 export interface ComicResponse {
@@ -91,10 +112,62 @@ interface RequestOptions {
   method?: string;
   body?: unknown; // object -> JSON; FormData -> gửi nguyên
   auth?: boolean; // có gắn Bearer token không
+  skipRefresh?: boolean; // nội bộ: tránh loop khi retry sau refresh
+}
+
+let refreshTokenRequest: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshTokenRequest) return refreshTokenRequest;
+
+  refreshTokenRequest = (async () => {
+    const refreshToken = getRefreshToken();
+    const headers: Record<string, string> = {};
+    const body = refreshToken ? JSON.stringify({ refreshToken }) : undefined;
+
+    if (body) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers,
+        body,
+        credentials: 'include',
+      });
+    } catch {
+      clearToken();
+      return null;
+    }
+
+    let payload: ApiResponse<AuthResponse> | AuthResponse | null = null;
+    try {
+      payload = (await res.json()) as ApiResponse<AuthResponse> | AuthResponse;
+    } catch {
+      // backend có thể trả body rỗng khi refresh fail
+    }
+
+    const data =
+      payload && 'data' in payload ? payload.data : payload;
+
+    if (!res.ok || !data?.accessToken) {
+      clearToken();
+      return null;
+    }
+
+    setAuthTokens(data);
+    return data.accessToken;
+  })().finally(() => {
+    refreshTokenRequest = null;
+  });
+
+  return refreshTokenRequest;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, auth = true } = options;
+  const { method = 'GET', body, auth = true, skipRefresh = false } = options;
   const headers: Record<string, string> = {};
 
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
@@ -112,6 +185,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     res = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
+      credentials: 'include',
       body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
     });
   } catch (err) {
@@ -123,6 +197,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     payload = (await res.json()) as ApiResponse<T>;
   } catch {
     // body rỗng / không phải JSON
+  }
+
+  const shouldTryRefresh =
+    auth && !skipRefresh && res.status === 401 && path !== '/auth/refresh';
+
+  if (shouldTryRefresh) {
+    const refreshedToken = await refreshAccessToken();
+    if (refreshedToken) {
+      return request<T>(path, { ...options, skipRefresh: true });
+    }
   }
 
   if (!res.ok || (payload && payload.success === false)) {
@@ -141,6 +225,9 @@ export const authApi = {
       auth: false,
       body: { email, password },
     });
+  },
+  refresh() {
+    return refreshAccessToken();
   },
   register(input: { email: string; username: string; password: string; role: ApiRole }) {
     return request<AuthResponse>('/auth/register', {
